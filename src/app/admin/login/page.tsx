@@ -7,25 +7,59 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { BookOpen, Shield, ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { BookOpen, Shield, ArrowLeft, Eye, EyeOff, AlertCircle } from "lucide-react"
 import Link from "next/link"
 
 export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
-    username: "",
-    password: "",
+    correo: "",
+    contraseña: "",
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
-    setTimeout(() => {
-      setIsLoading(false)
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        throw new Error("URL del backend no configurada")
+      }
+
+      const response = await fetch(`${apiUrl}/admin/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          correo: formData.correo,
+          contraseña: formData.contraseña,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || "Error al iniciar sesión")
+        setIsLoading(false)
+        return
+      }
+
+      sessionStorage.setItem("adminAuthenticated", "true")
+      sessionStorage.setItem("adminEmail", formData.correo)
+
+      console.log(data.status)
       window.location.href = "/admin/dashboard"
-    }, 500)
+    } catch (err) {
+      console.error("Error en login:", err)
+      setError("Error de conexión. Verifica tu conexión a internet.")
+      setIsLoading(false)
+    }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,6 +67,7 @@ export default function AdminLoginPage() {
       ...formData,
       [e.target.name]: e.target.value,
     })
+    if (error) setError("")
   }
 
   return (
@@ -72,16 +107,23 @@ export default function AdminLoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="flex items-center space-x-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-sm text-destructive">{error}</span>
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-foreground">
-                  Usuario
+                <Label htmlFor="correo" className="text-foreground">
+                  Correo Electrónico
                 </Label>
                 <Input
-                  id="username"
-                  name="username"
-                  type="text"
-                  placeholder="Ingresa tu usuario"
-                  value={formData.username}
+                  id="correo"
+                  name="correo"
+                  type="email"
+                  placeholder="Ingresa tu correo"
+                  value={formData.correo}
                   onChange={handleInputChange}
                   required
                   className="bg-background border-border focus:border-primary"
@@ -89,16 +131,16 @@ export default function AdminLoginPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-foreground">
+                <Label htmlFor="contraseña" className="text-foreground">
                   Contraseña
                 </Label>
                 <div className="relative">
                   <Input
-                    id="password"
-                    name="password"
+                    id="contraseña"
+                    name="contraseña"
                     type={showPassword ? "text" : "password"}
                     placeholder="Ingresa tu contraseña"
-                    value={formData.password}
+                    value={formData.contraseña}
                     onChange={handleInputChange}
                     required
                     className="bg-background border-border focus:border-primary pr-10"
