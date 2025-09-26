@@ -22,14 +22,10 @@ export default function AdminLoginPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // TODO: Conectar con el backend
-    console.log("Login attempt:", formData)
-
-    // Simular delay de API
     setTimeout(() => {
       setIsLoading(false)
-      // Aquí irá la lógica de autenticación real
-    }, 1000)
+      window.location.href = "/admin/dashboard"
+    }, 500)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,7 +138,14 @@ export default function AdminLoginPage() {
               </Button>
             </form>
 
-           
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                ¿Problemas para acceder?{" "}
+                <a href="mailto:ayudantech@unimet.edu.ve" className="text-primary hover:underline">
+                  Contacta soporte
+                </a>
+              </p>
+            </div>
           </CardContent>
         </Card>
 
