@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Users, BookOpen, CheckCircle, BarChart3, Shield, Clock } from "lucide-react"
+import Link from "next/link"
 
 export default function HomePage() {
   return (
@@ -44,39 +45,45 @@ export default function HomePage() {
           </h1>
 
           <p className="text-xl text-muted-foreground text-balance mb-12 max-w-2xl mx-auto leading-relaxed">
-            Plataforma integral para administrar, supervisar y gestionar las ayudantías de la UNIMET de
+            Plataforma integral para administrar, supervisar y gestionar las ayudantías universitarias de la UNIMET de
             manera eficiente y moderna.
           </p>
 
           {/* Login Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-            <Button size="lg" className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Shield className="mr-2 h-5 w-5" />
-              Iniciar Sesión como Admin
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
-            >
-              <Users className="mr-2 h-5 w-5" />
-              Iniciar Sesión como Supervisor
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground"
-            >
-              <BookOpen className="mr-2 h-5 w-5" />
-              Iniciar Sesión como Ayudante
-            </Button>
+            <Link href="/admin/login">
+              <Button size="lg" className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Shield className="mr-2 h-5 w-5" />
+                Iniciar Sesión como Admin
+              </Button>
+            </Link>
+            <Link href="/supervisor/login">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
+              >
+                <Users className="mr-2 h-5 w-5" />
+                Iniciar Sesión como Supervisor
+              </Button>
+            </Link>
+            <Link href="/ayudante/login">
+              <Button
+                size="lg"
+                variant="secondary"
+                className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground"
+              >
+                <BookOpen className="mr-2 h-5 w-5" />
+                Iniciar Sesión como Ayudante
+              </Button>
+            </Link>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             <Card className="border-border/50 bg-card/50 backdrop-blur">
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-primary mb-2">300+</div>
+                <div className="text-3xl font-bold text-primary mb-2">500+</div>
                 <div className="text-muted-foreground">Ayudantes Activos</div>
               </CardContent>
             </Card>
@@ -88,8 +95,8 @@ export default function HomePage() {
             </Card>
             <Card className="border-border/50 bg-card/50 backdrop-blur">
               <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-primary mb-2">100%</div>
-                <div className="text-muted-foreground">Confiable</div>
+                <div className="text-3xl font-bold text-primary mb-2">98%</div>
+                <div className="text-muted-foreground">Eficiencia</div>
               </CardContent>
             </Card>
           </div>
@@ -201,7 +208,7 @@ export default function HomePage() {
                 <div className="flex items-start space-x-3">
                   <CheckCircle className="h-6 w-6 text-primary mt-0.5 flex-shrink-0" />
                   <div>
-                    <h4 className="font-semibold text-foreground">Reducción del tiempo administrativo</h4>
+                    <h4 className="font-semibold text-foreground">Reducción del 80% en tiempo administrativo</h4>
                     <p className="text-muted-foreground">
                       Automatización de procesos repetitivos y generación de reportes
                     </p>
@@ -214,7 +221,13 @@ export default function HomePage() {
                     <p className="text-muted-foreground">Seguimiento claro y objetivo del desempeño de cada ayudante</p>
                   </div>
                 </div>
-                
+                <div className="flex items-start space-x-3">
+                  <CheckCircle className="h-6 w-6 text-primary mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-foreground">Integración con sistemas UNIMET</h4>
+                    <p className="text-muted-foreground">Conectividad directa con la base de datos institucional</p>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="relative">
@@ -273,7 +286,7 @@ export default function HomePage() {
               <h4 className="font-semibold text-foreground mb-4">Soporte</h4>
               <div className="space-y-2 text-muted-foreground">
                 <p>Lunes a Viernes</p>
-                <p>8:00 AM - 5:00 PM</p>
+                <p>8:00 AM - 6:00 PM</p>
                 <p>Soporte técnico disponible</p>
               </div>
             </div>
@@ -286,3 +299,4 @@ export default function HomePage() {
     </div>
   )
 }
+
