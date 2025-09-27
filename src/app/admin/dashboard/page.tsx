@@ -29,6 +29,8 @@ import {
   UserPlus,
   GraduationCap,
   AlertTriangle,
+  Edit,
+  Trash2,
 } from "lucide-react"
 
 const createAssistantSchema = z.object({
@@ -892,12 +894,13 @@ export default function AdminDashboardPage() {
                                 <TableHead>Nivel</TableHead>
                                 <TableHead>Facultad</TableHead>
                                 <TableHead>Carrera</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {loadingAyudantes ? (
                                 <TableRow>
-                                  <TableCell colSpan={6} className="text-center py-8">
+                                  <TableCell colSpan={7} className="text-center py-8">
                                     <div className="flex items-center justify-center space-x-2">
                                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                                       <span>Cargando ayudantes...</span>
@@ -906,7 +909,7 @@ export default function AdminDashboardPage() {
                                 </TableRow>
                               ) : filteredAyudantes.length === 0 ? (
                                 <TableRow>
-                                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                     {searchTerm
                                       ? `No se encontraron ayudantes que coincidan con "${searchTerm}"`
                                       : "No hay ayudantes registrados"}
@@ -921,6 +924,26 @@ export default function AdminDashboardPage() {
                                     <TableCell className="capitalize">{ayudante.nivel}</TableCell>
                                     <TableCell>{ayudante.facultad}</TableCell>
                                     <TableCell>{ayudante.carrera}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex items-center justify-end space-x-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                                          title="Editar ayudante"
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                          title="Eliminar ayudante"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
                                   </TableRow>
                                 ))
                               )}
@@ -937,12 +960,13 @@ export default function AdminDashboardPage() {
                                 <TableHead>Cédula</TableHead>
                                 <TableHead>Nombre</TableHead>
                                 <TableHead>Correo</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {loadingSupervisores ? (
                                 <TableRow>
-                                  <TableCell colSpan={3} className="text-center py-8">
+                                  <TableCell colSpan={4} className="text-center py-8">
                                     <div className="flex items-center justify-center space-x-2">
                                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                                       <span>Cargando supervisores...</span>
@@ -951,7 +975,7 @@ export default function AdminDashboardPage() {
                                 </TableRow>
                               ) : filteredSupervisores.length === 0 ? (
                                 <TableRow>
-                                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                                     {searchTerm
                                       ? `No se encontraron supervisores que coincidan con "${searchTerm}"`
                                       : "No hay supervisores registrados"}
@@ -963,6 +987,26 @@ export default function AdminDashboardPage() {
                                     <TableCell className="font-medium">{supervisor.cedula}</TableCell>
                                     <TableCell>{supervisor.nombre}</TableCell>
                                     <TableCell>{supervisor.correo}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex items-center justify-end space-x-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                                          title="Editar supervisor"
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                          title="Eliminar supervisor"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
                                   </TableRow>
                                 ))
                               )}
