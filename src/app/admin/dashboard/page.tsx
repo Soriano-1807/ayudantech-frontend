@@ -46,6 +46,18 @@ const createAssistantSchema = z.object({
   carrera: z.string().min(1, "Debes seleccionar una carrera"),
 })
 
+const editAssistantSchema = z.object({
+  nombre: z.string().min(1, "El nombre es requerido").min(2, "El nombre debe tener al menos 2 caracteres"),
+  correo: z
+    .string()
+    .min(1, "El correo es requerido")
+    .email("Formato de correo inválido")
+    .refine((email) => email.endsWith("@correo.unimet.edu.ve"), "El correo debe terminar en @correo.unimet.edu.ve"),
+  nivel: z.string().min(1, "Debes seleccionar un nivel académico"),
+  facultad: z.string().min(1, "Debes seleccionar una facultad"),
+  carrera: z.string().min(1, "Debes seleccionar una carrera"),
+})
+
 const createSupervisorSchema = z.object({
   cedula: z.string().min(1, "La cédula es requerida").regex(/^\d+$/, "La cédula debe contener solo números"),
   nombre: z.string().min(1, "El nombre es requerido").min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -57,6 +69,7 @@ const createSupervisorSchema = z.object({
 })
 
 type CreateAssistantForm = z.infer<typeof createAssistantSchema>
+type EditAssistantForm = z.infer<typeof editAssistantSchema>
 type CreateSupervisorForm = z.infer<typeof createSupervisorSchema>
 
 interface Facultad {
@@ -91,6 +104,8 @@ export default function AdminDashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAssistantForm, setShowAssistantForm] = useState(false)
   const [showSupervisorForm, setShowSupervisorForm] = useState(false)
+  const [showEditAssistantModal, setShowEditAssistantModal] = useState(false)
+  const [editingAssistant, setEditingAssistant] = useState<Ayudante | null>(null)
   const [apiMessage, setApiMessage] = useState<string | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
@@ -124,6 +139,18 @@ export default function AdminDashboardPage() {
       facultad: "Ingeniería",
       carrera: "",
     },
+  })
+
+  const {
+    register: registerEditAssistant,
+    handleSubmit: handleSubmitEditAssistant,
+    formState: { errors: errorsEditAssistant, isSubmitting: isSubmittingEditAssistant },
+    setValue: setValueEditAssistant,
+    watch: watchEditAssistant,
+    reset: resetEditAssistant,
+    control: controlEditAssistant,
+  } = useForm<EditAssistantForm>({
+    resolver: zodResolver(editAssistantSchema),
   })
 
   const {
@@ -223,6 +250,40 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const fetchCarrerasForEdit = async (facultadNombre: string) => {
+    if (!facultadNombre) {
+      setCarreras([])
+      return
+    }
+
+    try {
+      setLoadingCarreras(true)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        console.error("API URL not configured")
+        return
+      }
+
+      const response = await fetch(`${apiUrl}/facultades/${encodeURIComponent(facultadNombre)}/carreras`)
+
+      if (!response.ok) {
+        throw new Error(`Error fetching careers: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setCarreras(data)
+
+      // Don't auto-select first career for edit form - keep current value
+    } catch (error) {
+      console.error("Error fetching careers:", error)
+      const fallbackCarreras = getFallbackCarreras(facultadNombre)
+      setCarreras(fallbackCarreras)
+    } finally {
+      setLoadingCarreras(false)
+    }
+  }
+
   const getFallbackCarreras = (facultadNombre: string): Carrera[] => {
     const fallbackData: Record<string, Carrera[]> = {
       Ingeniería: [
@@ -268,6 +329,16 @@ export default function AdminDashboardPage() {
       fetchCarreras(selectedFacultad)
     }
   }, [watch("facultad"), showAssistantForm, setValue])
+
+  useEffect(() => {
+    const selectedFacultad = watchEditAssistant("facultad")
+    if (selectedFacultad && showEditAssistantModal && editingAssistant) {
+      if (selectedFacultad !== editingAssistant.facultad) {
+        setValueEditAssistant("carrera", "")
+      }
+      fetchCarrerasForEdit(selectedFacultad)
+    }
+  }, [watchEditAssistant("facultad"), showEditAssistantModal, setValueEditAssistant, editingAssistant])
 
   const fetchAyudantes = async () => {
     try {
@@ -470,6 +541,86 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const onSubmitEditAssistant = async (data: EditAssistantForm) => {
+    if (!editingAssistant) return
+
+    try {
+      setApiError(null)
+      setApiMessage(null)
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        throw new Error(
+          "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
+        )
+      }
+
+      const fullUrl = `${apiUrl}/ayudantes/${editingAssistant.cedula}`
+
+      const response = await fetch(fullUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+
+        if (response.status === 400 || response.status === 409 || response.status === 500) {
+          const errorMessage = errorData.error || errorData.message || ""
+          const isDuplicateKeyError = errorMessage.includes("duplicate key value violates unique constraint")
+
+          if (isDuplicateKeyError) {
+            if (
+              errorMessage.includes("correo") ||
+              errorMessage.includes("email") ||
+              errorMessage.includes("unique_email")
+            ) {
+              if (data.correo !== editingAssistant.correo) {
+                setErrorDialogMessage(
+                  `El correo "${data.correo}" ya está registrado en el sistema. Por favor, utiliza un correo diferente.`,
+                )
+                setShowErrorDialog(true)
+                return
+              }
+            }
+
+            setErrorDialogMessage(
+              "Ya existe un registro con estos datos en el sistema. Por favor, verifica la información e intenta nuevamente.",
+            )
+            setShowErrorDialog(true)
+            return
+          }
+        }
+
+        if (response.status === 404) {
+          setErrorDialogMessage("El ayudante no fue encontrado en el sistema.")
+          setShowErrorDialog(true)
+          return
+        }
+
+        throw new Error(errorData.error || `Error del servidor: ${response.status}`)
+      }
+
+      const result = await response.json()
+      setApiMessage(result.status || "✅ Ayudante modificado correctamente")
+
+      setTimeout(() => {
+        resetEditAssistant()
+        setShowEditAssistantModal(false)
+        setEditingAssistant(null)
+        setApiMessage(null)
+        fetchAyudantes() // Refresh the list
+      }, 2000)
+    } catch (error) {
+      console.error("❌ ERROR:", error)
+      setApiError(error instanceof Error ? error.message : "Error desconocido")
+    }
+  }
+
   const onSubmitSupervisor = async (data: CreateSupervisorForm) => {
     try {
       setApiError(null)
@@ -561,6 +712,25 @@ export default function AdminDashboardPage() {
     setShowAssistantForm(true)
   }
 
+  const handleEditAssistant = async (ayudante: Ayudante) => {
+    setEditingAssistant(ayudante)
+
+    // Fetch facultades first
+    await fetchFacultades()
+
+    await fetchCarrerasForEdit(ayudante.facultad)
+
+    resetEditAssistant({
+      nombre: ayudante.nombre,
+      correo: ayudante.correo,
+      nivel: ayudante.nivel,
+      facultad: ayudante.facultad,
+      carrera: ayudante.carrera,
+    })
+
+    setShowEditAssistantModal(true)
+  }
+
   const handleCreateSupervisor = () => {
     setShowSupervisorForm(true)
   }
@@ -569,8 +739,11 @@ export default function AdminDashboardPage() {
     setShowCreateModal(false)
     setShowAssistantForm(false)
     setShowSupervisorForm(false)
+    setShowEditAssistantModal(false)
+    setEditingAssistant(null)
     reset()
     resetSupervisor()
+    resetEditAssistant()
     setSearchTerm("") // Clear search term when closing modal
   }
 
@@ -931,6 +1104,7 @@ export default function AdminDashboardPage() {
                                           size="sm"
                                           className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
                                           title="Editar ayudante"
+                                          onClick={() => handleEditAssistant(ayudante)}
                                         >
                                           <Edit className="h-4 w-4" />
                                         </Button>
@@ -1335,6 +1509,182 @@ export default function AdminDashboardPage() {
               </div>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditAssistantModal} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="text-lg font-semibold">Editar Ayudante</DialogTitle>
+
+          <div className="space-y-2 pb-4">
+            <p className="text-sm text-muted-foreground">
+              Modifica la información del ayudante {editingAssistant?.nombre}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmitEditAssistant(onSubmitEditAssistant)} className="space-y-4 py-4">
+            {apiMessage && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-sm text-green-800">{apiMessage}</p>
+              </div>
+            )}
+
+            {apiError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">❌ {apiError}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-cedula">Cédula</Label>
+                <Input
+                  id="edit-cedula"
+                  value={editingAssistant?.cedula || ""}
+                  disabled
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
+                />
+                <p className="text-xs text-muted-foreground">La cédula no se puede modificar</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-nombre">Nombre Completo</Label>
+                <Input
+                  id="edit-nombre"
+                  placeholder="Juan Pérez"
+                  {...registerEditAssistant("nombre")}
+                  className={errorsEditAssistant.nombre ? "border-red-500" : ""}
+                />
+                {errorsEditAssistant.nombre && (
+                  <p className="text-sm text-red-500">{errorsEditAssistant.nombre.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-correo">Correo Electrónico</Label>
+              <Input
+                id="edit-correo"
+                type="email"
+                placeholder="juan.perez@correo.unimet.edu.ve"
+                {...registerEditAssistant("correo")}
+                className={errorsEditAssistant.correo ? "border-red-500" : ""}
+              />
+              {errorsEditAssistant.correo && (
+                <p className="text-sm text-red-500">{errorsEditAssistant.correo.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-nivel">Nivel Académico</Label>
+              <Controller
+                name="nivel"
+                control={controlEditAssistant}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger className={errorsEditAssistant.nivel ? "border-red-500" : ""}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pregrado">Pregrado</SelectItem>
+                      <SelectItem value="postgrado">Postgrado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errorsEditAssistant.nivel && <p className="text-sm text-red-500">{errorsEditAssistant.nivel.message}</p>}
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-facultad">Facultad</Label>
+                <Controller
+                  name="facultad"
+                  control={controlEditAssistant}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className={errorsEditAssistant.facultad ? "border-red-500" : ""}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingFacultades ? (
+                          <div className="p-2 text-sm text-muted-foreground">Cargando facultades...</div>
+                        ) : (
+                          facultades.map((facultad) => (
+                            <SelectItem key={facultad.nombre} value={facultad.nombre}>
+                              {facultad.nombre}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errorsEditAssistant.facultad && (
+                  <p className="text-sm text-red-500">{errorsEditAssistant.facultad.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-carrera">Carrera</Label>
+                <Controller
+                  name="carrera"
+                  control={controlEditAssistant}
+                  render={({ field }) => (
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      disabled={!watchEditAssistant("facultad") || loadingCarreras}
+                    >
+                      <SelectTrigger className={errorsEditAssistant.carrera ? "border-red-500" : ""}>
+                        <SelectValue
+                          placeholder={
+                            !watchEditAssistant("facultad")
+                              ? "Primero selecciona una facultad"
+                              : loadingCarreras
+                                ? "Cargando carreras..."
+                                : "Selecciona una carrera"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingCarreras ? (
+                          <div className="p-2 text-sm text-muted-foreground">Cargando carreras...</div>
+                        ) : carreras.length > 0 ? (
+                          carreras.map((carrera) => (
+                            <SelectItem key={carrera.nombre} value={carrera.nombre}>
+                              {carrera.nombre}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-2 text-sm text-muted-foreground">
+                            No hay carreras disponibles para esta facultad
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errorsEditAssistant.carrera && (
+                  <p className="text-sm text-red-500">{errorsEditAssistant.carrera.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseModal}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSubmittingEditAssistant}>
+                {isSubmittingEditAssistant ? "Guardando..." : "Guardar Cambios"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
