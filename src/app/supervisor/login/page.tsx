@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,25 +11,45 @@ import { BookOpen, Users, ArrowLeft, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 
 export default function SupervisorLoginPage() {
+  const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
-    // TODO: Conectar con el backend
-    console.log("Supervisor login attempt:", formData)
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/supervisores/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          correo: formData.email,
+          contraseña: formData.password,
+        }),
+      })
 
-    // Simular delay de API
-    setTimeout(() => {
+      const data = await response.json()
+
+      if (response.ok) {
+        router.push("/supervisor/dashboard")
+      } else {
+        setError(data.error || "Error en el login")
+      }
+    } catch (err) {
+      console.error("Error en login:", err)
+      setError("Error de conexión. Intenta nuevamente.")
+    } finally {
       setIsLoading(false)
-      // Aquí irá la lógica de autenticación real
-    }, 1000)
+    }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,6 +96,10 @@ export default function SupervisorLoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{error}</div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-foreground">
                   Correo Electrónico
