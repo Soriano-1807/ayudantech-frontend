@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -64,6 +66,22 @@ interface Carrera {
   facultad_nombre: string
 }
 
+interface Ayudante {
+  cedula: string
+  nombre: string
+  correo: string
+  nivel: string
+  facultad: string
+  carrera: string
+}
+
+interface Supervisor {
+  cedula: string
+  nombre: string
+  correo: string
+  contraseña: string
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter()
   const [activeSection, setActiveSection] = useState("users")
@@ -81,6 +99,13 @@ export default function AdminDashboardPage() {
   const [loadingFacultades, setLoadingFacultades] = useState(false)
   const [carreras, setCarreras] = useState<Carrera[]>([])
   const [loadingCarreras, setLoadingCarreras] = useState(false)
+
+  const [ayudantes, setAyudantes] = useState<Ayudante[]>([])
+  const [supervisores, setSupervisores] = useState<Supervisor[]>([])
+  const [loadingAyudantes, setLoadingAyudantes] = useState(false)
+  const [loadingSupervisores, setLoadingSupervisores] = useState(false)
+
+  const [searchTerm, setSearchTerm] = useState("")
 
   const {
     register,
@@ -242,6 +267,87 @@ export default function AdminDashboardPage() {
     }
   }, [watch("facultad"), showAssistantForm, setValue])
 
+  const fetchAyudantes = async () => {
+    try {
+      setLoadingAyudantes(true)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        console.error("API URL not configured")
+        return
+      }
+
+      const response = await fetch(`${apiUrl}/ayudantes`)
+
+      if (!response.ok) {
+        throw new Error(`Error fetching ayudantes: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setAyudantes(data)
+    } catch (error) {
+      console.error("Error fetching ayudantes:", error)
+      setAyudantes([])
+    } finally {
+      setLoadingAyudantes(false)
+    }
+  }
+
+  const fetchSupervisores = async () => {
+    try {
+      setLoadingSupervisores(true)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        console.error("API URL not configured")
+        return
+      }
+
+      const response = await fetch(`${apiUrl}/supervisores`)
+
+      if (!response.ok) {
+        throw new Error(`Error fetching supervisores: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setSupervisores(data)
+    } catch (error) {
+      console.error("Error fetching supervisores:", error)
+      setSupervisores([])
+    } finally {
+      setLoadingSupervisores(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeSection === "users" && isAuthenticated) {
+      fetchAyudantes()
+      fetchSupervisores()
+    }
+  }, [activeSection, isAuthenticated])
+
+  const filteredAyudantes = useMemo(() => {
+    if (!searchTerm.trim()) return ayudantes
+
+    const searchLower = searchTerm.toLowerCase().trim()
+    return ayudantes.filter(
+      (ayudante) =>
+        String(ayudante.cedula).toLowerCase().includes(searchLower) ||
+        ayudante.nombre.toLowerCase().includes(searchLower),
+    )
+  }, [ayudantes, searchTerm])
+
+  const filteredSupervisores = useMemo(() => {
+    if (!searchTerm.trim()) return supervisores
+
+    const searchLower = searchTerm.toLowerCase().trim()
+    return supervisores.filter(
+      (supervisor) =>
+        String(supervisor.cedula).toLowerCase().includes(searchLower) ||
+        supervisor.nombre.toLowerCase().includes(searchLower),
+    )
+  }, [supervisores, searchTerm])
+
   const onSubmitAssistant = async (data: CreateAssistantForm) => {
     try {
       setApiError(null)
@@ -353,6 +459,7 @@ export default function AdminDashboardPage() {
         setShowAssistantForm(false)
         setShowCreateModal(false)
         setApiMessage(null)
+        fetchAyudantes() // Refresh the list
       }, 2000)
     } catch (error) {
       console.error("[v0] ❌ ERROR COMPLETO:", error)
@@ -431,6 +538,7 @@ export default function AdminDashboardPage() {
         setShowSupervisorForm(false)
         setShowCreateModal(false)
         setApiMessage(null)
+        fetchSupervisores() // Refresh the list
       }, 2000)
     } catch (error) {
       console.error("❌ ERROR:", error)
@@ -461,6 +569,7 @@ export default function AdminDashboardPage() {
     setShowSupervisorForm(false)
     reset()
     resetSupervisor()
+    setSearchTerm("") // Clear search term when closing modal
   }
 
   const handleCloseErrorDialog = () => {
@@ -612,44 +721,46 @@ export default function AdminDashboardPage() {
                     ].find((s) => s.id === activeSection)?.title
                   }
                 </h2>
-                <p className="text-muted-foreground">
-                  {
-                    [
-                      {
-                        id: "users",
-                        title: "Gestión de Usuarios",
-                        description: "Administrar estudiantes, supervisores y coordinadores",
-                        icon: <Users className="h-4 w-4" />,
-                        color: "bg-blue-500",
-                        stats: "156 usuarios activos",
-                      },
-                      {
-                        id: "plazas",
-                        title: "Gestión de Plazas de Ayudantía",
-                        description: "Crear y administrar plazas disponibles",
-                        icon: <Briefcase className="h-4 w-4" />,
-                        color: "bg-green-500",
-                        stats: "24 plazas activas",
-                      },
-                      {
-                        id: "seguimiento",
-                        title: "Seguimiento de Ayudantías",
-                        description: "Monitorear el progreso y actividades",
-                        icon: <TrendingUp className="h-4 w-4" />,
-                        color: "bg-purple-500",
-                        stats: "18 ayudantías en curso",
-                      },
-                      {
-                        id: "evaluacion",
-                        title: "Evaluación y Beneficios",
-                        description: "Gestionar evaluaciones y asignar beneficios",
-                        icon: <Award className="h-4 w-4" />,
-                        color: "bg-orange-500",
-                        stats: "12 evaluaciones pendientes",
-                      },
-                    ].find((s) => s.id === activeSection)?.description
-                  }
-                </p>
+                <CardDescription>
+                  {activeSection === "users"
+                    ? "Administra ayudantes y supervisores del sistema"
+                    : `Esta sección estará disponible próximamente. Aquí podrás gestionar todo lo relacionado con ${[
+                        {
+                          id: "users",
+                          title: "Gestión de Usuarios",
+                          description: "Administrar estudiantes, supervisores y coordinadores",
+                          icon: <Users className="h-4 w-4" />,
+                          color: "bg-blue-500",
+                          stats: "156 usuarios activos",
+                        },
+                        {
+                          id: "plazas",
+                          title: "Gestión de Plazas de Ayudantía",
+                          description: "Crear y administrar plazas disponibles",
+                          icon: <Briefcase className="h-4 w-4" />,
+                          color: "bg-green-500",
+                          stats: "24 plazas activas",
+                        },
+                        {
+                          id: "seguimiento",
+                          title: "Seguimiento de Ayudantías",
+                          description: "Monitorear el progreso y actividades",
+                          icon: <TrendingUp className="h-4 w-4" />,
+                          color: "bg-purple-500",
+                          stats: "18 ayudantías en curso",
+                        },
+                        {
+                          id: "evaluacion",
+                          title: "Evaluación y Beneficios",
+                          description: "Gestionar evaluaciones y asignar beneficios",
+                          icon: <Award className="h-4 w-4" />,
+                          color: "bg-orange-500",
+                          stats: "12 evaluaciones pendientes",
+                        },
+                      ]
+                        .find((s) => s.id === activeSection)
+                        ?.title.toLowerCase()}.`}
+                </CardDescription>
               </div>
               <Button className="bg-primary hover:bg-primary/90" onClick={handleCreateUser}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -698,51 +809,9 @@ export default function AdminDashboardPage() {
                   }
                 </CardTitle>
                 <CardDescription>
-                  Esta sección estará disponible próximamente. Aquí podrás gestionar todo lo relacionado con{" "}
-                  {[
-                    {
-                      id: "users",
-                      title: "Gestión de Usuarios",
-                      description: "Administrar estudiantes, supervisores y coordinadores",
-                      icon: <Users className="h-4 w-4" />,
-                      color: "bg-blue-500",
-                      stats: "156 usuarios activos",
-                    },
-                    {
-                      id: "plazas",
-                      title: "Gestión de Plazas de Ayudantía",
-                      description: "Crear y administrar plazas disponibles",
-                      icon: <Briefcase className="h-4 w-4" />,
-                      color: "bg-green-500",
-                      stats: "24 plazas activas",
-                    },
-                    {
-                      id: "seguimiento",
-                      title: "Seguimiento de Ayudantías",
-                      description: "Monitorear el progreso y actividades",
-                      icon: <TrendingUp className="h-4 w-4" />,
-                      color: "bg-purple-500",
-                      stats: "18 ayudantías en curso",
-                    },
-                    {
-                      id: "evaluacion",
-                      title: "Evaluación y Beneficios",
-                      description: "Gestionar evaluaciones y asignar beneficios",
-                      icon: <Award className="h-4 w-4" />,
-                      color: "bg-orange-500",
-                      stats: "12 evaluaciones pendientes",
-                    },
-                  ]
-                    .find((s) => s.id === activeSection)
-                    ?.title.toLowerCase()}
-                  .
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                    {
-                      [
+                  {activeSection === "users"
+                    ? "Administra ayudantes y supervisores del sistema"
+                    : `Esta sección estará disponible próximamente. Aquí podrás gestionar todo lo relacionado con ${[
                         {
                           id: "users",
                           title: "Gestión de Usuarios",
@@ -775,14 +844,180 @@ export default function AdminDashboardPage() {
                           color: "bg-orange-500",
                           stats: "12 evaluaciones pendientes",
                         },
-                      ].find((s) => s.id === activeSection)?.icon
-                    }
+                      ]
+                        .find((s) => s.id === activeSection)
+                        ?.title.toLowerCase()}.`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {activeSection === "users" ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="relative flex-1 max-w-sm">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar por cédula o nombre..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+                      {searchTerm && (
+                        <Button variant="outline" size="sm" onClick={() => setSearchTerm("")}>
+                          Limpiar
+                        </Button>
+                      )}
+                    </div>
+
+                    <Tabs defaultValue="ayudantes" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="ayudantes">
+                          Ayudantes ({filteredAyudantes.length}
+                          {searchTerm && ` de ${ayudantes.length}`})
+                        </TabsTrigger>
+                        <TabsTrigger value="supervisores">
+                          Supervisores ({filteredSupervisores.length}
+                          {searchTerm && ` de ${supervisores.length}`})
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="ayudantes" className="space-y-4">
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Cédula</TableHead>
+                                <TableHead>Nombre</TableHead>
+                                <TableHead>Correo</TableHead>
+                                <TableHead>Nivel</TableHead>
+                                <TableHead>Facultad</TableHead>
+                                <TableHead>Carrera</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {loadingAyudantes ? (
+                                <TableRow>
+                                  <TableCell colSpan={6} className="text-center py-8">
+                                    <div className="flex items-center justify-center space-x-2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                                      <span>Cargando ayudantes...</span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ) : filteredAyudantes.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                    {searchTerm
+                                      ? `No se encontraron ayudantes que coincidan con "${searchTerm}"`
+                                      : "No hay ayudantes registrados"}
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                filteredAyudantes.map((ayudante) => (
+                                  <TableRow key={ayudante.cedula}>
+                                    <TableCell className="font-medium">{ayudante.cedula}</TableCell>
+                                    <TableCell>{ayudante.nombre}</TableCell>
+                                    <TableCell>{ayudante.correo}</TableCell>
+                                    <TableCell className="capitalize">{ayudante.nivel}</TableCell>
+                                    <TableCell>{ayudante.facultad}</TableCell>
+                                    <TableCell>{ayudante.carrera}</TableCell>
+                                  </TableRow>
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="supervisores" className="space-y-4">
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Cédula</TableHead>
+                                <TableHead>Nombre</TableHead>
+                                <TableHead>Correo</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {loadingSupervisores ? (
+                                <TableRow>
+                                  <TableCell colSpan={3} className="text-center py-8">
+                                    <div className="flex items-center justify-center space-x-2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                                      <span>Cargando supervisores...</span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ) : filteredSupervisores.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                                    {searchTerm
+                                      ? `No se encontraron supervisores que coincidan con "${searchTerm}"`
+                                      : "No hay supervisores registrados"}
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                filteredSupervisores.map((supervisor) => (
+                                  <TableRow key={supervisor.cedula}>
+                                    <TableCell className="font-medium">{supervisor.cedula}</TableCell>
+                                    <TableCell>{supervisor.nombre}</TableCell>
+                                    <TableCell>{supervisor.correo}</TableCell>
+                                  </TableRow>
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </div>
-                  <h3 className="text-lg font-medium text-foreground mb-2">Próximamente</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Esta funcionalidad se desarrollará en las próximas iteraciones.
-                  </p>
-                </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                      {
+                        [
+                          {
+                            id: "users",
+                            title: "Gestión de Usuarios",
+                            description: "Administrar estudiantes, supervisores y coordinadores",
+                            icon: <Users className="h-4 w-4" />,
+                            color: "bg-blue-500",
+                            stats: "156 usuarios activos",
+                          },
+                          {
+                            id: "plazas",
+                            title: "Gestión de Plazas de Ayudantía",
+                            description: "Crear y administrar plazas disponibles",
+                            icon: <Briefcase className="h-4 w-4" />,
+                            color: "bg-green-500",
+                            stats: "24 plazas activas",
+                          },
+                          {
+                            id: "seguimiento",
+                            title: "Seguimiento de Ayudantías",
+                            description: "Monitorear el progreso y actividades",
+                            icon: <TrendingUp className="h-4 w-4" />,
+                            color: "bg-purple-500",
+                            stats: "18 ayudantías en curso",
+                          },
+                          {
+                            id: "evaluacion",
+                            title: "Evaluación y Beneficios",
+                            description: "Gestionar evaluaciones y asignar beneficios",
+                            icon: <Award className="h-4 w-4" />,
+                            color: "bg-orange-500",
+                            stats: "12 evaluaciones pendientes",
+                          },
+                        ].find((s) => s.id === activeSection)?.icon
+                      }
+                    </div>
+                    <h3 className="text-lg font-medium text-foreground mb-2">Próximamente</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Esta funcionalidad se desarrollará en las próximas iteraciones.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
