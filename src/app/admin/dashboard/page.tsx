@@ -26,6 +26,7 @@ import {
   ChevronLeft,
   UserPlus,
   GraduationCap,
+  AlertTriangle,
 } from "lucide-react"
 
 const createAssistantSchema = z.object({
@@ -41,11 +42,26 @@ const createAssistantSchema = z.object({
   carrera: z.string().min(1, "Debes seleccionar una carrera"),
 })
 
+const createSupervisorSchema = z.object({
+  cedula: z.string().min(1, "La cédula es requerida").regex(/^\d+$/, "La cédula debe contener solo números"),
+  nombre: z.string().min(1, "El nombre es requerido").min(2, "El nombre debe tener al menos 2 caracteres"),
+  correo: z
+    .string()
+    .min(1, "El correo es requerido")
+    .email("Formato de correo inválido")
+    .refine((email) => email.endsWith("@correo.unimet.edu.ve"), "El correo debe terminar en @correo.unimet.edu.ve"),
+})
+
 type CreateAssistantForm = z.infer<typeof createAssistantSchema>
+type CreateSupervisorForm = z.infer<typeof createSupervisorSchema>
 
 interface Facultad {
-  id_facultad: number
   nombre: string
+}
+
+interface Carrera {
+  nombre: string
+  facultad_nombre: string
 }
 
 export default function AdminDashboardPage() {
@@ -54,12 +70,43 @@ export default function AdminDashboardPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAssistantForm, setShowAssistantForm] = useState(false)
+  const [showSupervisorForm, setShowSupervisorForm] = useState(false)
   const [apiMessage, setApiMessage] = useState<string | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [showErrorDialog, setShowErrorDialog] = useState(false)
+  const [errorDialogMessage, setErrorDialogMessage] = useState("")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [adminEmail, setAdminEmail] = useState("")
   const [facultades, setFacultades] = useState<Facultad[]>([])
   const [loadingFacultades, setLoadingFacultades] = useState(false)
+  const [carreras, setCarreras] = useState<Carrera[]>([])
+  const [loadingCarreras, setLoadingCarreras] = useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setValue,
+    watch,
+    reset,
+    control,
+  } = useForm<CreateAssistantForm>({
+    resolver: zodResolver(createAssistantSchema),
+    defaultValues: {
+      nivel: "pregrado",
+      facultad: "Ingeniería",
+      carrera: "",
+    },
+  })
+
+  const {
+    register: registerSupervisor,
+    handleSubmit: handleSubmitSupervisor,
+    formState: { errors: errorsSupervisor, isSubmitting: isSubmittingSupervisor },
+    reset: resetSupervisor,
+  } = useForm<CreateSupervisorForm>({
+    resolver: zodResolver(createSupervisorSchema),
+  })
 
   useEffect(() => {
     const checkAuth = () => {
@@ -99,14 +146,86 @@ export default function AdminDashboardPage() {
     } catch (error) {
       console.error("Error fetching faculties:", error)
       setFacultades([
-        { id_facultad: 1, nombre: "Ingeniería" },
-        { id_facultad: 2, nombre: "Ciencias" },
-        { id_facultad: 3, nombre: "Humanidades" },
-        { id_facultad: 4, nombre: "Administración" },
+        { nombre: "Ingeniería" },
+        { nombre: "Ciencias Económicas y Sociales" },
+        { nombre: "Ciencias" },
+        { nombre: "Humanidades" },
+        { nombre: "Estudios Jurídicos y Políticos" },
       ])
     } finally {
       setLoadingFacultades(false)
     }
+  }
+
+  const fetchCarreras = async (facultadNombre: string) => {
+    if (!facultadNombre) {
+      setCarreras([])
+      return
+    }
+
+    try {
+      setLoadingCarreras(true)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        console.error("API URL not configured")
+        return
+      }
+
+      const response = await fetch(`${apiUrl}/facultades/${encodeURIComponent(facultadNombre)}/carreras`)
+
+      if (!response.ok) {
+        throw new Error(`Error fetching careers: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setCarreras(data)
+
+      if (data.length > 0) {
+        setValue("carrera", data[0].nombre)
+      }
+    } catch (error) {
+      console.error("Error fetching careers:", error)
+      const fallbackCarreras = getFallbackCarreras(facultadNombre)
+      setCarreras(fallbackCarreras)
+      if (fallbackCarreras.length > 0) {
+        setValue("carrera", fallbackCarreras[0].nombre)
+      }
+    } finally {
+      setLoadingCarreras(false)
+    }
+  }
+
+  const getFallbackCarreras = (facultadNombre: string): Carrera[] => {
+    const fallbackData: Record<string, Carrera[]> = {
+      Ingeniería: [
+        { nombre: "Ingeniería Civil", facultad_nombre: "Ingeniería" },
+        { nombre: "Ingeniería Mecánica", facultad_nombre: "Ingeniería" },
+        { nombre: "Ingeniería Producción", facultad_nombre: "Ingeniería" },
+        { nombre: "Ingeniería Química", facultad_nombre: "Ingeniería" },
+        { nombre: "Ingeniería de Sistemas", facultad_nombre: "Ingeniería" },
+        { nombre: "Ingeniería Eléctrica", facultad_nombre: "Ingeniería" },
+      ],
+      "Ciencias Económicas y Sociales": [
+        { nombre: "Ciencias Administrativas", facultad_nombre: "Ciencias Económicas y Sociales" },
+        { nombre: "Economía y Finanzas", facultad_nombre: "Ciencias Económicas y Sociales" },
+      ],
+      Ciencias: [
+        { nombre: "Matemáticas", facultad_nombre: "Ciencias" },
+        { nombre: "Física", facultad_nombre: "Ciencias" },
+        { nombre: "Química", facultad_nombre: "Ciencias" },
+      ],
+      Humanidades: [
+        { nombre: "Psicología", facultad_nombre: "Humanidades" },
+        { nombre: "Comunicación Social", facultad_nombre: "Humanidades" },
+        { nombre: "Educación", facultad_nombre: "Humanidades" },
+      ],
+      "Estudios Jurídicos y Políticos": [
+        { nombre: "Derecho", facultad_nombre: "Estudios Jurídicos y Políticos" },
+        { nombre: "Ciencias Políticas", facultad_nombre: "Estudios Jurídicos y Políticos" },
+      ],
+    }
+    return fallbackData[facultadNombre] || []
   }
 
   const handleLogout = () => {
@@ -115,22 +234,13 @@ export default function AdminDashboardPage() {
     router.push("/admin/login")
   }
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    setValue,
-    watch,
-    reset,
-    control,
-  } = useForm<CreateAssistantForm>({
-    resolver: zodResolver(createAssistantSchema),
-    defaultValues: {
-      nivel: "pregrado",
-      facultad: "1", // Set default facultad to "1" instead of empty string
-      carrera: "sistemas",
-    },
-  })
+  useEffect(() => {
+    const selectedFacultad = watch("facultad")
+    if (selectedFacultad && showAssistantForm) {
+      setValue("carrera", "")
+      fetchCarreras(selectedFacultad)
+    }
+  }, [watch("facultad"), showAssistantForm, setValue])
 
   const onSubmitAssistant = async (data: CreateAssistantForm) => {
     try {
@@ -194,6 +304,41 @@ export default function AdminDashboardPage() {
         const errorData = await response.json()
         console.log("[v0] Error del servidor:", errorData)
         console.log("[v0] =================================")
+
+        if (response.status === 400 || response.status === 409 || response.status === 500) {
+          const errorMessage = errorData.error || errorData.message || ""
+
+          const isDuplicateKeyError = errorMessage.includes("duplicate key value violates unique constraint")
+
+          if (isDuplicateKeyError) {
+            if (errorMessage.includes("ayudante_pkey") || errorMessage.includes("PRIMARY KEY")) {
+              setErrorDialogMessage(
+                `La cédula "${data.cedula}" ya está registrada en el sistema. Por favor, verifica el número de cédula e intenta nuevamente.`,
+              )
+              setShowErrorDialog(true)
+              return
+            }
+
+            if (
+              errorMessage.includes("correo") ||
+              errorMessage.includes("email") ||
+              errorMessage.includes("unique_email")
+            ) {
+              setErrorDialogMessage(
+                `El correo "${data.correo}" ya está registrado en el sistema. Por favor, utiliza un correo diferente.`,
+              )
+              setShowErrorDialog(true)
+              return
+            }
+
+            setErrorDialogMessage(
+              "Ya existe un registro con estos datos en el sistema. Por favor, verifica la información e intenta nuevamente.",
+            )
+            setShowErrorDialog(true)
+            return
+          }
+        }
+
         throw new Error(errorData.error || `Error del servidor: ${response.status}`)
       }
 
@@ -216,6 +361,83 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const onSubmitSupervisor = async (data: CreateSupervisorForm) => {
+    try {
+      setApiError(null)
+      setApiMessage(null)
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        throw new Error(
+          "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
+        )
+      }
+
+      const fullUrl = `${apiUrl}/supervisores`
+
+      const response = await fetch(fullUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+
+        if (response.status === 400 || response.status === 409 || response.status === 500) {
+          const errorMessage = errorData.error || errorData.message || ""
+          const isDuplicateKeyError = errorMessage.includes("duplicate key value violates unique constraint")
+
+          if (isDuplicateKeyError) {
+            if (errorMessage.includes("supervisor_pkey") || errorMessage.includes("PRIMARY KEY")) {
+              setErrorDialogMessage(
+                `La cédula "${data.cedula}" ya está registrada en el sistema. Por favor, verifica el número de cédula e intenta nuevamente.`,
+              )
+              setShowErrorDialog(true)
+              return
+            }
+
+            if (
+              errorMessage.includes("correo") ||
+              errorMessage.includes("email") ||
+              errorMessage.includes("unique_email")
+            ) {
+              setErrorDialogMessage(
+                `El correo "${data.correo}" ya está registrado en el sistema. Por favor, utiliza un correo diferente.`,
+              )
+              setShowErrorDialog(true)
+              return
+            }
+
+            setErrorDialogMessage(
+              "Ya existe un registro con estos datos en el sistema. Por favor, verifica la información e intenta nuevamente.",
+            )
+            setShowErrorDialog(true)
+            return
+          }
+        }
+
+        throw new Error(errorData.error || `Error del servidor: ${response.status}`)
+      }
+
+      const result = await response.json()
+      setApiMessage(result.status || "✅ Supervisor creado correctamente")
+
+      setTimeout(() => {
+        resetSupervisor()
+        setShowSupervisorForm(false)
+        setShowCreateModal(false)
+        setApiMessage(null)
+      }, 2000)
+    } catch (error) {
+      console.error("❌ ERROR:", error)
+      setApiError(error instanceof Error ? error.message : "Error desconocido")
+    }
+  }
+
   const handleCreateUser = () => {
     setShowCreateModal(true)
   }
@@ -223,16 +445,27 @@ export default function AdminDashboardPage() {
   const handleCreateAssistant = () => {
     fetchFacultades().then(() => {
       if (facultades.length > 0 && !watch("facultad")) {
-        setValue("facultad", facultades[0].id_facultad.toString())
+        setValue("facultad", facultades[0].nombre)
       }
     })
     setShowAssistantForm(true)
   }
 
+  const handleCreateSupervisor = () => {
+    setShowSupervisorForm(true)
+  }
+
   const handleCloseModal = () => {
     setShowCreateModal(false)
     setShowAssistantForm(false)
+    setShowSupervisorForm(false)
     reset()
+    resetSupervisor()
+  }
+
+  const handleCloseErrorDialog = () => {
+    setShowErrorDialog(false)
+    setErrorDialogMessage("")
   }
 
   if (!isAuthenticated) {
@@ -556,6 +789,23 @@ export default function AdminDashboardPage() {
         </main>
       </div>
 
+      <Dialog open={showErrorDialog} onOpenChange={handleCloseErrorDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle className="flex items-center space-x-2 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            <span>Error al crear {showSupervisorForm ? "supervisor" : "ayudante"}</span>
+          </DialogTitle>
+
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">{errorDialogMessage}</p>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleCloseErrorDialog}>Entendido</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showCreateModal} onOpenChange={() => {}}>
         <DialogContent
           className="sm:max-w-md"
@@ -564,16 +814,16 @@ export default function AdminDashboardPage() {
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <DialogTitle className="text-lg font-semibold">
-            {showAssistantForm ? "Crear Ayudante" : "Crear Nuevo Usuario"}
+            {showAssistantForm ? "Crear Ayudante" : showSupervisorForm ? "Crear Supervisor" : "Crear Nuevo Usuario"}
           </DialogTitle>
 
           <div className="space-y-2 pb-4">
-            {!showAssistantForm && (
+            {!showAssistantForm && !showSupervisorForm && (
               <p className="text-sm text-muted-foreground">Selecciona el tipo de usuario que deseas crear</p>
             )}
           </div>
 
-          {!showAssistantForm ? (
+          {!showAssistantForm && !showSupervisorForm ? (
             <div className="flex flex-col space-y-4 py-4">
               <Button onClick={handleCreateAssistant} className="flex items-center justify-center space-x-2 h-12">
                 <GraduationCap className="h-5 w-5" />
@@ -581,13 +831,12 @@ export default function AdminDashboardPage() {
               </Button>
 
               <Button
+                onClick={handleCreateSupervisor}
                 variant="outline"
-                disabled
                 className="flex items-center justify-center space-x-2 h-12 bg-transparent"
               >
                 <UserPlus className="h-5 w-5" />
                 <span>Crear Supervisor</span>
-                <span className="text-xs text-muted-foreground ml-2">(Próximamente)</span>
               </Button>
 
               <div className="flex justify-end pt-4">
@@ -596,6 +845,65 @@ export default function AdminDashboardPage() {
                 </Button>
               </div>
             </div>
+          ) : showSupervisorForm ? (
+            <form onSubmit={handleSubmitSupervisor(onSubmitSupervisor)} className="space-y-4 py-4">
+              {apiMessage && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-800">{apiMessage}</p>
+                </div>
+              )}
+
+              {apiError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-800">❌ {apiError}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="supervisor-cedula">Cédula</Label>
+                  <Input
+                    id="supervisor-cedula"
+                    placeholder="12345678"
+                    {...registerSupervisor("cedula")}
+                    className={errorsSupervisor.cedula ? "border-red-500" : ""}
+                  />
+                  {errorsSupervisor.cedula && <p className="text-sm text-red-500">{errorsSupervisor.cedula.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="supervisor-nombre">Nombre Completo</Label>
+                  <Input
+                    id="supervisor-nombre"
+                    placeholder="Juan Pérez"
+                    {...registerSupervisor("nombre")}
+                    className={errorsSupervisor.nombre ? "border-red-500" : ""}
+                  />
+                  {errorsSupervisor.nombre && <p className="text-sm text-red-500">{errorsSupervisor.nombre.message}</p>}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="supervisor-correo">Correo Electrónico</Label>
+                <Input
+                  id="supervisor-correo"
+                  type="email"
+                  placeholder="juan.perez@correo.unimet.edu.ve"
+                  {...registerSupervisor("correo")}
+                  className={errorsSupervisor.correo ? "border-red-500" : ""}
+                />
+                {errorsSupervisor.correo && <p className="text-sm text-red-500">{errorsSupervisor.correo.message}</p>}
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={handleCloseModal}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isSubmittingSupervisor}>
+                  {isSubmittingSupervisor ? "Creando..." : "Crear Supervisor"}
+                </Button>
+              </div>
+            </form>
           ) : (
             <form onSubmit={handleSubmit(onSubmitAssistant)} className="space-y-4 py-4">
               {apiMessage && (
@@ -682,7 +990,7 @@ export default function AdminDashboardPage() {
                             <div className="p-2 text-sm text-muted-foreground">Cargando facultades...</div>
                           ) : (
                             facultades.map((facultad) => (
-                              <SelectItem key={facultad.id_facultad} value={facultad.id_facultad.toString()}>
+                              <SelectItem key={facultad.nombre} value={facultad.nombre}>
                                 {facultad.nombre}
                               </SelectItem>
                             ))
@@ -700,16 +1008,36 @@ export default function AdminDashboardPage() {
                     name="carrera"
                     control={control}
                     render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value} defaultValue="sistemas">
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={!watch("facultad") || loadingCarreras}
+                      >
                         <SelectTrigger className={errors.carrera ? "border-red-500" : ""}>
-                          <SelectValue />
+                          <SelectValue
+                            placeholder={
+                              !watch("facultad")
+                                ? "Primero selecciona una facultad"
+                                : loadingCarreras
+                                  ? "Cargando carreras..."
+                                  : "Selecciona una carrera"
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="sistemas">Ingeniería de Sistemas</SelectItem>
-                          <SelectItem value="industrial">Ingeniería Industrial</SelectItem>
-                          <SelectItem value="civil">Ingeniería Civil</SelectItem>
-                          <SelectItem value="matematicas">Matemáticas</SelectItem>
-                          <SelectItem value="fisica">Física</SelectItem>
+                          {loadingCarreras ? (
+                            <div className="p-2 text-sm text-muted-foreground">Cargando carreras...</div>
+                          ) : carreras.length > 0 ? (
+                            carreras.map((carrera) => (
+                              <SelectItem key={carrera.nombre} value={carrera.nombre}>
+                                {carrera.nombre}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-2 text-sm text-muted-foreground">
+                              No hay carreras disponibles para esta facultad
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                     )}
