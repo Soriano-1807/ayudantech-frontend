@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,19 +14,38 @@ export default function AyudanteLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
 
-    // Aquí conectarás con tu backend
-    console.log("Ayudante login attempt:", { email, password })
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ayudantes/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          correo: email,
+          contraseña: password,
+        }),
+      })
 
-    // Simular delay de autenticación
-    setTimeout(() => {
+      const data = await response.json()
+
+      if (response.ok) {
+        router.push("/ayudante/dashboard")
+      } else {
+        setError(data.error || "Error en el login")
+      }
+    } catch (err) {
+      setError("Error de conexión. Intenta nuevamente.")
+    } finally {
       setIsLoading(false)
-      // Aquí manejarás la respuesta del backend
-    }, 2000)
+    }
   }
 
   return (
@@ -59,6 +78,10 @@ export default function AyudanteLoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{error}</div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">Correo Electrónico</Label>
                 <Input

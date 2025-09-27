@@ -68,9 +68,19 @@ const createSupervisorSchema = z.object({
     .refine((email) => email.endsWith("@correo.unimet.edu.ve"), "El correo debe terminar en @correo.unimet.edu.ve"),
 })
 
+const editSupervisorSchema = z.object({
+  nombre: z.string().min(1, "El nombre es requerido").min(2, "El nombre debe tener al menos 2 caracteres"),
+  correo: z
+    .string()
+    .min(1, "El correo es requerido")
+    .email("Formato de correo inválido")
+    .refine((email) => email.endsWith("@correo.unimet.edu.ve"), "El correo debe terminar en @correo.unimet.edu.ve"),
+})
+
 type CreateAssistantForm = z.infer<typeof createAssistantSchema>
 type EditAssistantForm = z.infer<typeof editAssistantSchema>
 type CreateSupervisorForm = z.infer<typeof createSupervisorSchema>
+type EditSupervisorForm = z.infer<typeof editSupervisorSchema>
 
 interface Facultad {
   nombre: string
@@ -105,7 +115,15 @@ export default function AdminDashboardPage() {
   const [showAssistantForm, setShowAssistantForm] = useState(false)
   const [showSupervisorForm, setShowSupervisorForm] = useState(false)
   const [showEditAssistantModal, setShowEditAssistantModal] = useState(false)
+  const [showEditSupervisorModal, setShowEditSupervisorModal] = useState(false)
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
+  const [showDeleteSupervisorConfirmModal, setShowDeleteSupervisorConfirmModal] = useState(false) // Added state for supervisor delete confirmation
+  const [deletingAssistant, setDeletingAssistant] = useState<Ayudante | null>(null)
+  const [deletingSupervisor, setDeletingSupervisor] = useState<Supervisor | null>(null) // Added state for supervisor being deleted
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isDeletingSupervisor, setIsDeletingSupervisor] = useState(false) // Added separate loading state for supervisor deletion
   const [editingAssistant, setEditingAssistant] = useState<Ayudante | null>(null)
+  const [editingSupervisor, setEditingSupervisor] = useState<Supervisor | null>(null)
   const [apiMessage, setApiMessage] = useState<string | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
@@ -160,6 +178,15 @@ export default function AdminDashboardPage() {
     reset: resetSupervisor,
   } = useForm<CreateSupervisorForm>({
     resolver: zodResolver(createSupervisorSchema),
+  })
+
+  const {
+    register: registerEditSupervisor,
+    handleSubmit: handleSubmitEditSupervisor,
+    formState: { errors: errorsEditSupervisor, isSubmitting: isSubmittingEditSupervisor },
+    reset: resetEditSupervisor,
+  } = useForm<EditSupervisorForm>({
+    resolver: zodResolver(editSupervisorSchema),
   })
 
   useEffect(() => {
@@ -699,6 +726,86 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const onSubmitEditSupervisor = async (data: EditSupervisorForm) => {
+    if (!editingSupervisor) return
+
+    try {
+      setApiError(null)
+      setApiMessage(null)
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        throw new Error(
+          "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
+        )
+      }
+
+      const fullUrl = `${apiUrl}/supervisores/${editingSupervisor.cedula}`
+
+      const response = await fetch(fullUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+
+        if (response.status === 400 || response.status === 409 || response.status === 500) {
+          const errorMessage = errorData.error || errorData.message || ""
+          const isDuplicateKeyError = errorMessage.includes("duplicate key value violates unique constraint")
+
+          if (isDuplicateKeyError) {
+            if (
+              errorMessage.includes("correo") ||
+              errorMessage.includes("email") ||
+              errorMessage.includes("unique_email")
+            ) {
+              if (data.correo !== editingSupervisor.correo) {
+                setErrorDialogMessage(
+                  `El correo "${data.correo}" ya está registrado en el sistema. Por favor, utiliza un correo diferente.`,
+                )
+                setShowErrorDialog(true)
+                return
+              }
+            }
+
+            setErrorDialogMessage(
+              "Ya existe un registro con estos datos en el sistema. Por favor, verifica la información e intenta nuevamente.",
+            )
+            setShowErrorDialog(true)
+            return
+          }
+        }
+
+        if (response.status === 404) {
+          setErrorDialogMessage("El supervisor no fue encontrado en el sistema.")
+          setShowErrorDialog(true)
+          return
+        }
+
+        throw new Error(errorData.error || `Error del servidor: ${response.status}`)
+      }
+
+      const result = await response.json()
+      setApiMessage(result.status || "✅ Supervisor modificado correctamente")
+
+      setTimeout(() => {
+        resetEditSupervisor()
+        setShowEditSupervisorModal(false)
+        setEditingSupervisor(null)
+        setApiMessage(null)
+        fetchSupervisores() // Refresh the list
+      }, 2000)
+    } catch (error) {
+      console.error("❌ ERROR:", error)
+      setApiError(error instanceof Error ? error.message : "Error desconocido")
+    }
+  }
+
   const handleCreateUser = () => {
     setShowCreateModal(true)
   }
@@ -731,8 +838,156 @@ export default function AdminDashboardPage() {
     setShowEditAssistantModal(true)
   }
 
+  const handleEditSupervisor = (supervisor: Supervisor) => {
+    setEditingSupervisor(supervisor)
+
+    resetEditSupervisor({
+      nombre: supervisor.nombre,
+      correo: supervisor.correo,
+    })
+
+    setShowEditSupervisorModal(true)
+  }
+
+  const handleDeleteAssistant = (ayudante: Ayudante) => {
+    setDeletingAssistant(ayudante)
+    setShowDeleteConfirmModal(true)
+  }
+
+  const confirmDeleteAssistant = async () => {
+    if (!deletingAssistant) return
+
+    try {
+      setIsDeleting(true)
+      setApiError(null)
+      setApiMessage(null)
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        throw new Error(
+          "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
+        )
+      }
+
+      const fullUrl = `${apiUrl}/ayudantes/${deletingAssistant.cedula}`
+
+      const response = await fetch(fullUrl, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+
+        if (response.status === 404) {
+          setErrorDialogMessage("El ayudante no fue encontrado en el sistema.")
+          setShowErrorDialog(true)
+          return
+        }
+
+        throw new Error(errorData.error || `Error del servidor: ${response.status}`)
+      }
+
+      const result = await response.json()
+      setApiMessage(result.status || "✅ Ayudante eliminado correctamente")
+
+      // Close modal and refresh data
+      setShowDeleteConfirmModal(false)
+      setDeletingAssistant(null)
+      fetchAyudantes() // Refresh the list
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setApiMessage(null)
+      }, 3000)
+    } catch (error) {
+      console.error("❌ ERROR:", error)
+      setApiError(error instanceof Error ? error.message : "Error desconocido")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const cancelDeleteAssistant = () => {
+    setShowDeleteConfirmModal(false)
+    setDeletingAssistant(null)
+  }
+
   const handleCreateSupervisor = () => {
     setShowSupervisorForm(true)
+  }
+
+  const handleDeleteSupervisor = (supervisor: Supervisor) => {
+    // Added function to handle supervisor deletion
+    setDeletingSupervisor(supervisor)
+    setShowDeleteSupervisorConfirmModal(true)
+  }
+
+  const confirmDeleteSupervisor = async () => {
+    // Added function to confirm supervisor deletion
+    if (!deletingSupervisor) return
+
+    try {
+      setIsDeletingSupervisor(true)
+      setApiError(null)
+      setApiMessage(null)
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        throw new Error(
+          "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
+        )
+      }
+
+      const fullUrl = `${apiUrl}/supervisores/${deletingSupervisor.cedula}`
+
+      const response = await fetch(fullUrl, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+
+        if (response.status === 404) {
+          setErrorDialogMessage("El supervisor no fue encontrado en el sistema.")
+          setShowErrorDialog(true)
+          return
+        }
+
+        throw new Error(errorData.error || `Error del servidor: ${response.status}`)
+      }
+
+      const result = await response.json()
+      setApiMessage(result.status || "✅ Supervisor eliminado correctamente")
+
+      // Close modal and refresh data
+      setShowDeleteSupervisorConfirmModal(false)
+      setDeletingSupervisor(null)
+      fetchSupervisores() // Refresh the list
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setApiMessage(null)
+      }, 3000)
+    } catch (error) {
+      console.error("❌ ERROR:", error)
+      setApiError(error instanceof Error ? error.message : "Error desconocido")
+    } finally {
+      setIsDeletingSupervisor(false)
+    }
+  }
+
+  const cancelDeleteSupervisor = () => {
+    // Added function to cancel supervisor deletion
+    setShowDeleteSupervisorConfirmModal(false)
+    setDeletingSupervisor(null)
   }
 
   const handleCloseModal = () => {
@@ -740,10 +995,17 @@ export default function AdminDashboardPage() {
     setShowAssistantForm(false)
     setShowSupervisorForm(false)
     setShowEditAssistantModal(false)
+    setShowEditSupervisorModal(false)
+    setShowDeleteConfirmModal(false)
+    setShowDeleteSupervisorConfirmModal(false) // Added supervisor delete modal to close function
     setEditingAssistant(null)
+    setEditingSupervisor(null)
+    setDeletingAssistant(null)
+    setDeletingSupervisor(null) // Added supervisor deletion state reset
     reset()
     resetSupervisor()
     resetEditAssistant()
+    resetEditSupervisor()
     setSearchTerm("") // Clear search term when closing modal
   }
 
@@ -1113,6 +1375,7 @@ export default function AdminDashboardPage() {
                                           size="sm"
                                           className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
                                           title="Eliminar ayudante"
+                                          onClick={() => handleDeleteAssistant(ayudante)}
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -1168,6 +1431,7 @@ export default function AdminDashboardPage() {
                                           size="sm"
                                           className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
                                           title="Editar supervisor"
+                                          onClick={() => handleEditSupervisor(supervisor)}
                                         >
                                           <Edit className="h-4 w-4" />
                                         </Button>
@@ -1176,6 +1440,7 @@ export default function AdminDashboardPage() {
                                           size="sm"
                                           className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
                                           title="Eliminar supervisor"
+                                          onClick={() => handleDeleteSupervisor(supervisor)} // Added onClick handler for supervisor delete button
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -1685,6 +1950,169 @@ export default function AdminDashboardPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEditSupervisorModal} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="text-lg font-semibold">Editar Supervisor</DialogTitle>
+
+          <div className="space-y-2 pb-4">
+            <p className="text-sm text-muted-foreground">
+              Modifica la información del supervisor {editingSupervisor?.nombre}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmitEditSupervisor(onSubmitEditSupervisor)} className="space-y-4 py-4">
+            {apiMessage && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-sm text-green-800">{apiMessage}</p>
+              </div>
+            )}
+
+            {apiError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">❌ {apiError}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-supervisor-cedula">Cédula</Label>
+                <Input
+                  id="edit-supervisor-cedula"
+                  value={editingSupervisor?.cedula || ""}
+                  disabled
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
+                />
+                <p className="text-xs text-muted-foreground">La cédula no se puede modificar</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-supervisor-nombre">Nombre Completo</Label>
+                <Input
+                  id="edit-supervisor-nombre"
+                  placeholder="Juan Pérez"
+                  {...registerEditSupervisor("nombre")}
+                  className={errorsEditSupervisor.nombre ? "border-red-500" : ""}
+                />
+                {errorsEditSupervisor.nombre && (
+                  <p className="text-sm text-red-500">{errorsEditSupervisor.nombre.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-supervisor-correo">Correo Electrónico</Label>
+              <Input
+                id="edit-supervisor-correo"
+                type="email"
+                placeholder="juan.perez@correo.unimet.edu.ve"
+                {...registerEditSupervisor("correo")}
+                className={errorsEditSupervisor.correo ? "border-red-500" : ""}
+              />
+              {errorsEditSupervisor.correo && (
+                <p className="text-sm text-red-500">{errorsEditSupervisor.correo.message}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseModal}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSubmittingEditSupervisor}>
+                {isSubmittingEditSupervisor ? "Guardando..." : "Guardar Cambios"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteConfirmModal} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="flex items-center space-x-2 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            <span>Confirmar Eliminación</span>
+          </DialogTitle>
+
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              ¿Estás seguro de que deseas eliminar al ayudante{" "}
+              <span className="font-semibold text-foreground">{deletingAssistant?.nombre}</span> con cédula{" "}
+              <span className="font-semibold text-foreground">{deletingAssistant?.cedula}</span>?
+            </p>
+            <p className="text-sm text-red-600 font-medium">Esta acción no se puede deshacer.</p>
+
+            {apiError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">❌ {apiError}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={cancelDeleteAssistant} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmDeleteAssistant} disabled={isDeleting}>
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteSupervisorConfirmModal} onOpenChange={() => {}}>
+        {" "}
+        {/* Added supervisor delete confirmation modal */}
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="flex items-center space-x-2 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            <span>Confirmar Eliminación</span>
+          </DialogTitle>
+
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              ¿Estás seguro de que deseas eliminar al supervisor{" "}
+              <span className="font-semibold text-foreground">{deletingSupervisor?.nombre}</span> con cédula{" "}
+              <span className="font-semibold text-foreground">{deletingSupervisor?.cedula}</span>?
+            </p>
+            <p className="text-sm text-red-600 font-medium">Esta acción no se puede deshacer.</p>
+
+            {apiError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">❌ {apiError}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={cancelDeleteSupervisor} disabled={isDeletingSupervisor}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDeleteSupervisor}
+              disabled={isDeletingSupervisor}
+            >
+              {isDeletingSupervisor ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
