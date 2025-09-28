@@ -35,7 +35,7 @@ import {
 
 const createAssistantSchema = z.object({
   cedula: z.string().min(1, "La cédula es requerida").regex(/^\d+$/, "La cédula debe contener solo números"),
-  nombre: z.string().min(1, "El nombre es requerido").min(2, "El nombre debe tener al menos 2 caracteres"),
+  nombre: z.string().min(1, "El nombre es requerido"),
   correo: z
     .string()
     .min(1, "El correo es requerido")
@@ -98,6 +98,7 @@ interface Ayudante {
   nivel: string
   facultad: string
   carrera: string
+  contraseña?: string // Added optional password field for fetching
 }
 
 interface Supervisor {
@@ -480,91 +481,124 @@ export default function AdminDashboardPage() {
         body: JSON.stringify(data),
       })
 
-      console.log("[v0] =================================")
-      console.log("[v0] RESPUESTA DEL SERVIDOR:")
-      console.log("[v0] Status:", response.status)
-      console.log("[v0] Status Text:", response.statusText)
-      console.log("[v0] URL de respuesta:", response.url)
-      console.log("[v0] Headers de respuesta:", Object.fromEntries(response.headers.entries()))
+      console.log("[v0] Response status:", response.status)
+      console.log("[v0] Response ok:", response.ok)
 
-      if (response.status === 404) {
-        console.log("[v0] ❌ ERROR 404: El endpoint no existe")
-        console.log("[v0] Verifica que:")
-        console.log("[v0] 1. La URL del backend sea correcta:", apiUrl)
-        console.log("[v0] 2. El endpoint /ayudantes exista en tu backend")
-        console.log("[v0] 3. Tu backend esté corriendo y deployado")
-        throw new Error(`❌ Endpoint no encontrado (404). Verifica que ${fullUrl} exista en tu backend.`)
-      }
-
-      const contentType = response.headers.get("content-type")
-      console.log("[v0] Content-Type:", contentType)
-
-      if (!contentType || !contentType.includes("application/json")) {
-        const textResponse = await response.text()
-        console.log("[v0] Respuesta no-JSON recibida:", textResponse.substring(0, 500))
-        console.log("[v0] =================================")
-        throw new Error(`El servidor no devolvió JSON. Respuesta: ${response.status} ${response.statusText}`)
-      }
+      const responseData = await response.json()
+      console.log("[v0] Response data:", responseData)
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.log("[v0] Error del servidor:", errorData)
-        console.log("[v0] =================================")
-
-        if (response.status === 400 || response.status === 409 || response.status === 500) {
-          const errorMessage = errorData.error || errorData.message || ""
-
-          const isDuplicateKeyError = errorMessage.includes("duplicate key value violates unique constraint")
-
-          if (isDuplicateKeyError) {
-            if (errorMessage.includes("ayudante_pkey") || errorMessage.includes("PRIMARY KEY")) {
-              setErrorDialogMessage(
-                `La cédula "${data.cedula}" ya está registrada en el sistema. Por favor, verifica el número de cédula e intenta nuevamente.`,
-              )
-              setShowErrorDialog(true)
-              return
-            }
-
-            if (
-              errorMessage.includes("correo") ||
-              errorMessage.includes("email") ||
-              errorMessage.includes("unique_email")
-            ) {
-              setErrorDialogMessage(
-                `El correo "${data.correo}" ya está registrado en el sistema. Por favor, utiliza un correo diferente.`,
-              )
-              setShowErrorDialog(true)
-              return
-            }
-
-            setErrorDialogMessage(
-              "Ya existe un registro con estos datos en el sistema. Por favor, verifica la información e intenta nuevamente.",
-            )
-            setShowErrorDialog(true)
-            return
-          }
+        if (response.status === 409 && responseData.error?.includes("cedula")) {
+          throw new Error("❌ Ya existe un ayudante con esta cédula")
         }
-
-        throw new Error(errorData.error || `Error del servidor: ${response.status}`)
+        if (response.status === 409 && responseData.error?.includes("correo")) {
+          throw new Error("❌ Ya existe un ayudante con este correo electrónico")
+        }
+        throw new Error(responseData.error || "Error al crear el ayudante")
       }
 
-      const result = await response.json()
-      console.log("[v0] ✅ Ayudante creado exitosamente:", result)
-      console.log("[v0] =================================")
+      const assistantDataResponse = await fetch(`${apiUrl}/ayudantes/${data.cedula}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
 
-      setApiMessage(result.status || "✅ Ayudante creado correctamente")
+      if (!assistantDataResponse.ok) {
+        console.error("[v0] Error fetching assistant data for email")
+        throw new Error("Ayudante creado pero no se pudo obtener la información completa")
+      }
 
-      setTimeout(() => {
-        reset()
-        setShowAssistantForm(false)
-        setShowCreateModal(false)
-        setApiMessage(null)
-        fetchAyudantes() // Refresh the list
-      }, 2000)
-    } catch (error) {
-      console.error("[v0] ❌ ERROR COMPLETO:", error)
-      console.log("[v0] =================================")
-      setApiError(error instanceof Error ? error.message : "Error desconocido")
+      const assistantData = await assistantDataResponse.json()
+      console.log("[v0] Complete assistant data:", assistantData)
+
+      try {
+        const emailResponse = await fetch("/api/send-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: assistantData.correo,
+            subject: "🎓 Bienvenido a AyudanTech - Credenciales de Acceso",
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+                <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                  <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #2563eb; margin: 0; font-size: 28px;">🎓 AyudanTech</h1>
+                    <p style="color: #64748b; margin: 10px 0 0 0; font-size: 16px;">Sistema de Gestión Académica</p>
+                  </div>
+                  
+                  <h2 style="color: #1e293b; margin-bottom: 20px;">¡Bienvenido al equipo!</h2>
+                  
+                  <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
+                    Hola <strong>${assistantData.nombre}</strong>, tu cuenta de ayudante ha sido creada exitosamente. 
+                    A continuación encontrarás tus credenciales de acceso al sistema:
+                  </p>
+                  
+                  <div style="background-color: #f1f5f9; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #2563eb;">
+                    <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 18px;">📋 Información de tu cuenta:</h3>
+                    <p style="margin: 8px 0; color: #475569;"><strong>Cédula:</strong> ${assistantData.cedula}</p>
+                    <p style="margin: 8px 0; color: #475569;"><strong>Nombre:</strong> ${assistantData.nombre}</p>
+                    <p style="margin: 8px 0; color: #475569;"><strong>Correo:</strong> ${assistantData.correo}</p>
+                    <p style="margin: 8px 0; color: #475569;"><strong>Nivel:</strong> ${assistantData.nivel}</p>
+                    <p style="margin: 8px 0; color: #475569;"><strong>Facultad:</strong> ${assistantData.facultad}</p>
+                    <p style="margin: 8px 0; color: #475569;"><strong>Carrera:</strong> ${assistantData.carrera}</p>
+                  </div>
+                  
+                  <div style="background-color: #fef3c7; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #f59e0b;">
+                    <h3 style="color: #92400e; margin: 0 0 15px 0; font-size: 18px;">🔐 Credenciales de Acceso:</h3>
+                    <p style="margin: 8px 0; color: #92400e;"><strong>Usuario:</strong> ${assistantData.correo}</p>
+                    <p style="margin: 8px 0; color: #92400e;"><strong>Contraseña:</strong> ${assistantData.contraseña}</p>
+                  </div>
+                  
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${window.location.origin}/ayudante/login" 
+                       style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                      🚀 Acceder al Sistema
+                    </a>
+                  </div>
+                  
+                  <div style="background-color: #f8fafc; padding: 20px; border-radius: 6px; margin-top: 25px;">
+                    <p style="color: #64748b; font-size: 14px; margin: 0; text-align: center;">
+                      <strong>Importante:</strong> Guarda estas credenciales en un lugar seguro. 
+                      Si tienes alguna pregunta, contacta al administrador del sistema.
+                    </p>
+                  </div>
+                  
+                  <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+                    <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+                      Este correo fue enviado automáticamente por el sistema AyudanTech
+                    </p>
+                  </div>
+                </div>
+              </div>
+            `,
+          }),
+        })
+
+        if (!emailResponse.ok) {
+          console.error("[v0] Error sending email:", await emailResponse.text())
+          // Don't throw error here since the assistant was created successfully
+          setApiMessage("✅ Ayudante creado correctamente, pero hubo un problema enviando el correo de bienvenida")
+        } else {
+          setApiMessage("✅ Ayudante creado correctamente y correo de bienvenida enviado")
+        }
+      } catch (emailError) {
+        console.error("[v0] Email sending failed:", emailError)
+        setApiMessage("✅ Ayudante creado correctamente, pero hubo un problema enviando el correo de bienvenida")
+      }
+
+      // Reset form and close modal
+      reset()
+      setShowCreateModal(false) // Changed from setIsCreateModalOpen to setShowCreateModal
+      setShowAssistantForm(false) // Close assistant form specifically
+
+      // Refresh assistants list
+      fetchAyudantes() // Changed from fetchAssistants to fetchAyudantes
+    } catch (error: any) {
+      console.error("[v0] Error en onSubmitAssistant:", error)
+      setApiError(error.message || "Error desconocido al crear el ayudante")
     }
   }
 
@@ -713,6 +747,87 @@ export default function AdminDashboardPage() {
       const result = await response.json()
       setApiMessage(result.status || "✅ Supervisor creado correctamente")
 
+      try {
+        // Get the complete supervisor data including the auto-generated password
+        const supervisorResponse = await fetch(`${apiUrl}/supervisores/${data.cedula}`)
+
+        if (supervisorResponse.ok) {
+          const supervisorData = await supervisorResponse.json()
+
+          // Send welcome email with credentials
+          const emailResponse = await fetch("/api/send-email", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              to: supervisorData.correo,
+              subject: "Bienvenido al Sistema de Gestión de Ayudantías - Credenciales de Acceso",
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+                  <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                      <h1 style="color: #2563eb; margin: 0; font-size: 28px;">¡Bienvenido al Sistema!</h1>
+                      <p style="color: #64748b; margin: 10px 0 0 0; font-size: 16px;">Sistema de Gestión de Ayudantías</p>
+                    </div>
+                    
+                    <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                      <h2 style="color: #1e293b; margin: 0 0 15px 0; font-size: 20px;">Información de tu cuenta</h2>
+                      <div style="margin-bottom: 12px;">
+                        <strong style="color: #374151;">Nombre:</strong> 
+                        <span style="color: #6b7280;">${supervisorData.nombre}</span>
+                      </div>
+                      <div style="margin-bottom: 12px;">
+                        <strong style="color: #374151;">Cédula:</strong> 
+                        <span style="color: #6b7280;">${supervisorData.cedula}</span>
+                      </div>
+                      <div style="margin-bottom: 12px;">
+                        <strong style="color: #374151;">Rol:</strong> 
+                        <span style="color: #059669; font-weight: 600;">Supervisor</span>
+                      </div>
+                    </div>
+                    
+                    <div style="background-color: #ecfdf5; border: 1px solid #d1fae5; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                      <h3 style="color: #065f46; margin: 0 0 15px 0; font-size: 18px;">🔐 Credenciales de Acceso</h3>
+                      <div style="margin-bottom: 12px;">
+                        <strong style="color: #374151;">Usuario:</strong> 
+                        <code style="background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px; color: #1f2937;">${supervisorData.correo}</code>
+                      </div>
+                      <div>
+                        <strong style="color: #374151;">Contraseña:</strong> 
+                        <code style="background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px; color: #1f2937;">${supervisorData.contraseña}</code>
+                      </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-bottom: 25px;">
+                      <a href="${process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000"}/supervisor/login" 
+                         style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                        Acceder al Sistema
+                      </a>
+                    </div>
+                    
+                    <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center;">
+                      <p style="color: #6b7280; margin: 0; font-size: 14px;">
+                        Por favor, guarda estas credenciales en un lugar seguro.<br>
+                        Si tienes alguna pregunta, contacta al administrador del sistema.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              `,
+            }),
+          })
+
+          if (!emailResponse.ok) {
+            console.error("Error sending welcome email:", await emailResponse.text())
+            // Don't throw error here as the supervisor was already created successfully
+          }
+        }
+      } catch (emailError) {
+        console.error("Error in email process:", emailError)
+        // Don't throw error here as the supervisor was already created successfully
+      }
+
       setTimeout(() => {
         resetSupervisor()
         setShowSupervisorForm(false)
@@ -807,38 +922,47 @@ export default function AdminDashboardPage() {
   }
 
   const handleCreateUser = () => {
+    setApiMessage(null)
+    setApiError(null)
     setShowCreateModal(true)
   }
 
   const handleCreateAssistant = () => {
+    setApiMessage(null)
+    setApiError(null)
     fetchFacultades().then(() => {
       if (facultades.length > 0 && !watch("facultad")) {
         setValue("facultad", facultades[0].nombre)
       }
     })
     setShowAssistantForm(true)
+    setShowCreateModal(true)
+    setShowSupervisorForm(false)
   }
 
-  const handleEditAssistant = async (ayudante: Ayudante) => {
-    setEditingAssistant(ayudante)
+  const handleEditAssistant = (assistant: Ayudante) => {
+    setApiMessage(null) // Clear any previous messages
+    setApiError(null) // Clear any previous errors
+    setEditingAssistant(assistant)
 
     // Fetch facultades first
-    await fetchFacultades()
-
-    await fetchCarrerasForEdit(ayudante.facultad)
-
-    resetEditAssistant({
-      nombre: ayudante.nombre,
-      correo: ayudante.correo,
-      nivel: ayudante.nivel,
-      facultad: ayudante.facultad,
-      carrera: ayudante.carrera,
+    fetchFacultades().then(() => {
+      fetchCarrerasForEdit(assistant.facultad).then(() => {
+        resetEditAssistant({
+          nombre: assistant.nombre,
+          correo: assistant.correo,
+          nivel: assistant.nivel,
+          facultad: assistant.facultad,
+          carrera: assistant.carrera,
+        })
+        setShowEditAssistantModal(true)
+      })
     })
-
-    setShowEditAssistantModal(true)
   }
 
   const handleEditSupervisor = (supervisor: Supervisor) => {
+    setApiMessage(null) // Clear any previous messages
+    setApiError(null) // Clear any previous errors
     setEditingSupervisor(supervisor)
 
     resetEditSupervisor({
@@ -917,7 +1041,11 @@ export default function AdminDashboardPage() {
   }
 
   const handleCreateSupervisor = () => {
+    setApiMessage(null)
+    setApiError(null)
+    setShowCreateModal(true)
     setShowSupervisorForm(true)
+    setShowAssistantForm(false)
   }
 
   const handleDeleteSupervisor = (supervisor: Supervisor) => {
@@ -1002,6 +1130,8 @@ export default function AdminDashboardPage() {
     setEditingSupervisor(null)
     setDeletingAssistant(null)
     setDeletingSupervisor(null) // Added supervisor deletion state reset
+    setApiMessage(null) // Clear messages when closing modals
+    setApiError(null) // Clear errors when closing modals
     reset()
     resetSupervisor()
     resetEditAssistant()
