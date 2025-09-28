@@ -553,7 +553,7 @@ export default function AdminDashboardPage() {
                   </div>
                   
                   <div style="text-align: center; margin: 30px 0;">
-                    <a href="${window.location.origin}/ayudante/login" 
+                    <a href="https://ayudantech-frontend.vercel.app/ayudante/login" 
                        style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
                       🚀 Acceder al Sistema
                     </a>
@@ -762,7 +762,7 @@ export default function AdminDashboardPage() {
             },
             body: JSON.stringify({
               to: supervisorData.correo,
-              subject: "Bienvenido al Sistema de Gestión de Ayudantías - Credenciales de Acceso",
+              subject: "Bienvenido al Ayudantech - Credenciales de Acceso",
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
                   <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
@@ -800,7 +800,7 @@ export default function AdminDashboardPage() {
                     </div>
                     
                     <div style="text-align: center; margin-bottom: 25px;">
-                      <a href="${process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000"}/supervisor/login" 
+                      <a href="https://ayudantech-frontend.vercel.app/supervisor/login" 
                          style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
                         Acceder al Sistema
                       </a>
