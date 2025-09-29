@@ -946,11 +946,7 @@ export default function AdminDashboardPage() {
           const isDuplicateKeyError = errorMessage.includes("duplicate key value violates unique constraint")
 
           if (isDuplicateKeyError) {
-            if (
-              errorMessage.includes("correo") ||
-              errorMessage.includes("email") ||
-              errorMessage.includes("unique_email")
-            ) {
+            if (errorMessage.includes("correo") || errorMessage.includes("email") || errorMessage.includes("unique_email")) {
               if (data.correo !== editingSupervisor.correo) {
                 setErrorDialogMessage(
                   `El correo "${data.correo}" ya está registrado en el sistema. Por favor, utiliza un correo diferente.`,
@@ -1322,172 +1318,61 @@ export default function AdminDashboardPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-3xl font-bold text-foreground">
-                  {
-                    [
+                  <h2 className="text-3xl font-bold text-foreground">
                       {
-                        id: "users",
-                        title: "Gestión de Usuarios",
-                        description: "Administrar estudiantes, supervisores y coordinadores",
-                        icon: <Users className="h-4 w-4" />,
-                        color: "bg-blue-500",
-                        stats: "156 usuarios activos",
-                      },
-                      {
-                        id: "plazas",
-                        title: "Gestión de Plazas de Ayudantía",
-                        description: "Crear y administrar plazas disponibles",
-                        icon: <Briefcase className="h-4 w-4" />,
-                        color: "bg-green-500",
-                        stats: "24 plazas activas",
-                      },
-                      {
-                        id: "seguimiento",
-                        title: "Seguimiento de Ayudantías",
-                        description: "Monitorear el progreso y actividades",
-                        icon: <TrendingUp className="h-4 w-4" />,
-                        color: "bg-purple-500",
-                        stats: "18 ayudantías en curso",
-                      },
-                      {
-                        id: "evaluacion",
-                        title: "Evaluación y Beneficios",
-                        description: "Gestionar evaluaciones y asignar beneficios",
-                        icon: <Award className="h-4 w-4" />,
-                        color: "bg-orange-500",
-                        stats: "12 evaluaciones pendientes",
-                      },
-                    ].find((s) => s.id === activeSection)?.title
-                  }
-                </h2>
-                <CardDescription>
-                  {activeSection === "users"
-                    ? "Administra ayudantes y supervisores del sistema"
-                    : `Esta sección estará disponible próximamente. Aquí podrás gestionar todo lo relacionado con ${[
-                        {
-                          id: "users",
-                          title: "Gestión de Usuarios",
-                          description: "Administrar estudiantes, supervisores y coordinadores",
-                          icon: <Users className="h-4 w-4" />,
-                          color: "bg-blue-500",
-                          stats: "156 usuarios activos",
-                        },
-                        {
-                          id: "plazas",
-                          title: "Gestión de Plazas de Ayudantía",
-                          description: "Crear y administrar plazas disponibles",
-                          icon: <Briefcase className="h-4 w-4" />,
-                          color: "bg-green-500",
-                          stats: "24 plazas activas",
-                        },
-                        {
-                          id: "seguimiento",
-                          title: "Seguimiento de Ayudantías",
-                          description: "Monitorear el progreso y actividades",
-                          icon: <TrendingUp className="h-4 w-4" />,
-                          color: "bg-purple-500",
-                          stats: "18 ayudantías en curso",
-                        },
-                        {
-                          id: "evaluacion",
-                          title: "Evaluación y Beneficios",
-                          description: "Gestionar evaluaciones y asignar beneficios",
-                          icon: <Award className="h-4 w-4" />,
-                          color: "bg-orange-500",
-                          stats: "12 evaluaciones pendientes",
-                        },
-                      ]
-                        .find((s) => s.id === activeSection)
-                        ?.title.toLowerCase()}.`}
-                </CardDescription>
+                          [
+                              { id: "users", title: "Gestión de Usuarios" },
+                              { id: "plazas", title: "Gestión de Plazas de Ayudantía" },
+                              { id: "seguimiento", title: "Seguimiento de Ayudantías" },
+                              { id: "evaluacion", title: "Evaluación y Beneficios" },
+                          ].find((s) => s.id === activeSection)?.title
+                      }
+                  </h2>
+                  <CardDescription>
+                      {activeSection === "users"
+                          ? "Administra ayudantes y supervisores del sistema."
+                          : activeSection === "plazas"
+                              ? "Crea, edita y elimina las plazas de ayudantía disponibles."
+                              : `Esta sección estará disponible próximamente.`}
+                  </CardDescription>
               </div>
-              <Button className="bg-primary hover:bg-primary/90" onClick={handleCreateUser}>
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar Nuevo
-              </Button>
-            </div>
+
+              <div>
+                  {activeSection === "users" && (
+                      <Button className="bg-primary hover:bg-primary/90" onClick={handleCreateUser}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Agregar Nuevo
+                      </Button>
+                  )}
+                  {activeSection === "plazas" && (
+                      <Button onClick={() => { setShowPlazaModal(true); setEditingPlaza(null); setPlazaNombre(""); }}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Nueva Plaza
+                      </Button>
+                  )}
+              </div>
+          </div>
 
             <Card className="border-border/50">
               <CardHeader>
                 <CardTitle className="text-foreground">
-                  {
-                    [
-                      {
-                        id: "users",
-                        title: "Gestión de Usuarios",
-                        description: "Administrar estudiantes, supervisores y coordinadores",
-                        icon: <Users className="h-4 w-4" />,
-                        color: "bg-blue-500",
-                        stats: "156 usuarios activos",
-                      },
-                      {
-                        id: "plazas",
-                        title: "Gestión de Plazas de Ayudantía",
-                        description: "Crear y administrar plazas disponibles",
-                        icon: <Briefcase className="h-4 w-4" />,
-                        color: "bg-green-500",
-                        stats: "24 plazas activas",
-                      },
-                      {
-                        id: "seguimiento",
-                        title: "Seguimiento de Ayudantías",
-                        description: "Monitorear el progreso y actividades",
-                        icon: <TrendingUp className="h-4 w-4" />,
-                        color: "bg-purple-500",
-                        stats: "18 ayudantías en curso",
-                      },
-                      {
-                        id: "evaluacion",
-                        title: "Evaluación y Beneficios",
-                        description: "Gestionar evaluaciones y asignar beneficios",
-                        icon: <Award className="h-4 w-4" />,
-                        color: "bg-orange-500",
-                        stats: "12 evaluaciones pendientes",
-                      },
-                    ].find((s) => s.id === activeSection)?.title
-                  }
+                    {
+                        [
+                            { id: "users", title: "Lista de Usuarios" },
+                            { id: "plazas", title: "Lista de Plazas" },
+                            { id: "seguimiento", title: "Seguimiento" },
+                            { id: "evaluacion", title: "Evaluación" },
+                        ].find((s) => s.id === activeSection)?.title
+                    }
                 </CardTitle>
                 <CardDescription>
-                  {activeSection === "users"
-                    ? "Administra ayudantes y supervisores del sistema"
-                    : `Esta sección estará disponible próximamente. Aquí podrás gestionar todo lo relacionado con ${[
-                        {
-                          id: "users",
-                          title: "Gestión de Usuarios",
-                          description: "Administrar estudiantes, supervisores y coordinadores",
-                          icon: <Users className="h-4 w-4" />,
-                          color: "bg-blue-500",
-                          stats: "156 usuarios activos",
-                        },
-                        {
-                          id: "plazas",
-                          title: "Gestión de Plazas de Ayudantía",
-                          description: "Crear y administrar plazas disponibles",
-                          icon: <Briefcase className="h-4 w-4" />,
-                          color: "bg-green-500",
-                          stats: "24 plazas activas",
-                        },
-                        {
-                          id: "seguimiento",
-                          title: "Seguimiento de Ayudantías",
-                          description: "Monitorear el progreso y actividades",
-                          icon: <TrendingUp className="h-4 w-4" />,
-                          color: "bg-purple-500",
-                          stats: "18 ayudantías en curso",
-                        },
-                        {
-                          id: "evaluacion",
-                          title: "Evaluación y Beneficios",
-                          description: "Gestionar evaluaciones y asignar beneficios",
-                          icon: <Award className="h-4 w-4" />,
-                          color: "bg-orange-500",
-                          stats: "12 evaluaciones pendientes",
-                        },
-                      ]
-                        .find((s) => s.id === activeSection)
-                        ?.title.toLowerCase()}.`}
+                    {activeSection === "users"
+                        ? "Visualiza, edita o elimina los ayudantes y supervisores registrados."
+                        : activeSection === "plazas"
+                            ? "Administra las plazas disponibles para las ayudantías."
+                            : `Esta funcionalidad estará disponible próximamente.`}
                 </CardDescription>
-              </CardHeader>
+            </CardHeader>
               <CardContent>
                 {activeSection === "users" ? (
                   <div className="space-y-4">
@@ -1659,12 +1544,8 @@ export default function AdminDashboardPage() {
                   </div>
                 ) : activeSection === "plazas" ? (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-2xl font-bold text-foreground">Gestión de Plazas de Ayudantía</h2>
-                      <Button onClick={() => { setShowPlazaModal(true); setEditingPlaza(null); setPlazaNombre(""); }}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Nueva Plaza
-                      </Button>
+                    <div className="flex items-center justify-end">
+                      
                     </div>
                     <Card>
                       <CardContent className="pt-6">
