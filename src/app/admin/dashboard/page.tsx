@@ -108,6 +108,10 @@ interface Supervisor {
   contraseña: string
 }
 
+interface Plaza {
+  nombre: string
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter()
   const [activeSection, setActiveSection] = useState("users")
@@ -141,6 +145,13 @@ export default function AdminDashboardPage() {
   const [loadingAyudantes, setLoadingAyudantes] = useState(false)
   const [loadingSupervisores, setLoadingSupervisores] = useState(false)
 
+  const [plazas, setPlazas] = useState<Plaza[]>([])
+  const [loadingPlazas, setLoadingPlazas] = useState(false)
+  const [showPlazaModal, setShowPlazaModal] = useState(false)
+  const [plazaNombre, setPlazaNombre] = useState("")
+  const [editingPlaza, setEditingPlaza] = useState<Plaza | null>(null)
+  const [nuevoNombrePlaza, setNuevoNombrePlaza] = useState("")
+  
   const [searchTerm, setSearchTerm] = useState("")
 
   const {
@@ -349,6 +360,67 @@ export default function AdminDashboardPage() {
     sessionStorage.removeItem("adminEmail")
     router.push("/admin/login")
   }
+
+ 
+  const fetchPlazas = async () => {
+    setLoadingPlazas(true)
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const res = await fetch(`${apiUrl}/plazas`)
+      const data = await res.json()
+      setPlazas(data)
+    } catch (err) {
+      setPlazas([])
+    } finally {
+      setLoadingPlazas(false)
+    }
+  }
+
+  const handleCreatePlaza = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const res = await fetch(`${apiUrl}/plazas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: plazaNombre }),
+      })
+      if (res.ok) {
+        setPlazaNombre("")
+        setShowPlazaModal(false)
+        fetchPlazas()
+      }
+    } catch {}
+  }
+
+  const handleEditPlaza = async () => {
+    if (!editingPlaza) return
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const res = await fetch(`${apiUrl}/plazas/${editingPlaza.nombre}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nuevoNombre: nuevoNombrePlaza }),
+      })
+      if (res.ok) {
+        setEditingPlaza(null)
+        setNuevoNombrePlaza("")
+        setShowPlazaModal(false)
+        fetchPlazas()
+      }
+    } catch {}
+  }
+
+  const handleDeletePlaza = async (nombre: string) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const res = await fetch(`${apiUrl}/plazas/${nombre}`, { method: "DELETE" })
+      if (res.ok) fetchPlazas()
+    } catch {}
+  }
+
+  useEffect(() => {
+  if (activeSection === "plazas") fetchPlazas()
+}, [activeSection])
 
   useEffect(() => {
     const selectedFacultad = watch("facultad")
@@ -1585,7 +1657,106 @@ export default function AdminDashboardPage() {
                       </TabsContent>
                     </Tabs>
                   </div>
-                ) : (
+                ) : activeSection === "plazas" ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-2xl font-bold text-foreground">Gestión de Plazas de Ayudantía</h2>
+                      <Button onClick={() => { setShowPlazaModal(true); setEditingPlaza(null); setPlazaNombre(""); }}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nueva Plaza
+                      </Button>
+                    </div>
+                    <Card>
+                      <CardContent className="pt-6">
+                        {loadingPlazas ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2"></div>
+                            <span>Cargando plazas...</span>
+                          </div>
+                        ) : plazas.length === 0 ? (
+                          <div className="text-center text-muted-foreground py-8">No hay plazas registradas.</div>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Nombre</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {plazas.map((plaza) => (
+                                <TableRow key={plaza.nombre}>
+                                  <TableCell>{plaza.nombre}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      title="Editar plaza"
+                                      onClick={() => {
+                                        setEditingPlaza(plaza);
+                                        setNuevoNombrePlaza(plaza.nombre);
+                                        setShowPlazaModal(true);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      title="Eliminar plaza"
+                                      onClick={() => handleDeletePlaza(plaza.nombre)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Modal para crear/editar plaza */}
+                    <Dialog open={showPlazaModal} onOpenChange={(open) => {
+                      setShowPlazaModal(open);
+                      if (!open) {
+                        setEditingPlaza(null);
+                        setPlazaNombre("");
+                        setNuevoNombrePlaza("");
+                      }
+                    }}>
+                      <DialogContent>
+                        <DialogTitle>{editingPlaza ? "Editar Plaza" : "Nueva Plaza"}</DialogTitle>
+                        <div className="space-y-4">
+                          <Input
+                            placeholder="Nombre de la plaza"
+                            value={editingPlaza ? nuevoNombrePlaza : plazaNombre}
+                            onChange={e => editingPlaza ? setNuevoNombrePlaza(e.target.value) : setPlazaNombre(e.target.value)}
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <Button variant="outline" onClick={() => {
+                              setShowPlazaModal(false);
+                              setEditingPlaza(null);
+                              setPlazaNombre("");
+                              setNuevoNombrePlaza("");
+                            }}>
+                              Cancelar
+                            </Button>
+                            <Button
+                              onClick={editingPlaza ? handleEditPlaza : handleCreatePlaza}
+                              disabled={!(editingPlaza ? nuevoNombrePlaza : plazaNombre)}
+                            >
+                              {editingPlaza ? "Guardar Cambios" : "Crear"}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+               
+                ):(
+                  
                   <div className="text-center py-12">
                     <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
                       {
