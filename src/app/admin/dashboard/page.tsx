@@ -151,7 +151,7 @@ export default function AdminDashboardPage() {
   const [plazaNombre, setPlazaNombre] = useState("")
   const [editingPlaza, setEditingPlaza] = useState<Plaza | null>(null)
   const [nuevoNombrePlaza, setNuevoNombrePlaza] = useState("")
-  
+
   const [searchTerm, setSearchTerm] = useState("")
 
   const {
@@ -361,7 +361,6 @@ export default function AdminDashboardPage() {
     router.push("/admin/login")
   }
 
- 
   const fetchPlazas = async () => {
     setLoadingPlazas(true)
     try {
@@ -419,8 +418,8 @@ export default function AdminDashboardPage() {
   }
 
   useEffect(() => {
-  if (activeSection === "plazas") fetchPlazas()
-}, [activeSection])
+    if (activeSection === "plazas") fetchPlazas()
+  }, [activeSection])
 
   useEffect(() => {
     const selectedFacultad = watch("facultad")
@@ -560,13 +559,23 @@ export default function AdminDashboardPage() {
       console.log("[v0] Response data:", responseData)
 
       if (!response.ok) {
-        if (response.status === 409 && responseData.error?.includes("cedula")) {
-          throw new Error("❌ Ya existe un ayudante con esta cédula")
-        }
-        if (response.status === 409 && responseData.error?.includes("correo")) {
+        const errorMessage = responseData.error || ""
+
+        if (errorMessage.includes("ayudante_correo_key") || errorMessage.toLowerCase().includes("correo")) {
           throw new Error("❌ Ya existe un ayudante con este correo electrónico")
         }
-        throw new Error(responseData.error || "Error al crear el ayudante")
+
+        // Check for duplicate cedula in supervisor table (from backend validation)
+        if (errorMessage.includes("supervisor con esa cédula")) {
+          throw new Error("❌ Ya existe un supervisor con esta cédula")
+        }
+
+        // Check for duplicate cedula in ayudante table (check last to avoid false positives)
+        if (errorMessage.includes("ayudante_pkey") || errorMessage.includes("duplicate key")) {
+          throw new Error("❌ Ya existe un ayudante con esta cédula")
+        }
+
+        throw new Error(errorMessage || "Error al crear el ayudante")
       }
 
       const assistantDataResponse = await fetch(`${apiUrl}/ayudantes/${data.cedula}`, {
@@ -946,7 +955,11 @@ export default function AdminDashboardPage() {
           const isDuplicateKeyError = errorMessage.includes("duplicate key value violates unique constraint")
 
           if (isDuplicateKeyError) {
-            if (errorMessage.includes("correo") || errorMessage.includes("email") || errorMessage.includes("unique_email")) {
+            if (
+              errorMessage.includes("correo") ||
+              errorMessage.includes("email") ||
+              errorMessage.includes("unique_email")
+            ) {
               if (data.correo !== editingSupervisor.correo) {
                 setErrorDialogMessage(
                   `El correo "${data.correo}" ya está registrado en el sistema. Por favor, utiliza un correo diferente.`,
@@ -1318,61 +1331,67 @@ export default function AdminDashboardPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                  <h2 className="text-3xl font-bold text-foreground">
-                      {
-                          [
-                              { id: "users", title: "Gestión de Usuarios" },
-                              { id: "plazas", title: "Gestión de Plazas de Ayudantía" },
-                              { id: "seguimiento", title: "Seguimiento de Ayudantías" },
-                              { id: "evaluacion", title: "Evaluación y Beneficios" },
-                          ].find((s) => s.id === activeSection)?.title
-                      }
-                  </h2>
-                  <CardDescription>
-                      {activeSection === "users"
-                          ? "Administra ayudantes y supervisores del sistema."
-                          : activeSection === "plazas"
-                              ? "Crea, edita y elimina las plazas de ayudantía disponibles."
-                              : `Esta sección estará disponible próximamente.`}
-                  </CardDescription>
+                <h2 className="text-3xl font-bold text-foreground">
+                  {
+                    [
+                      { id: "users", title: "Gestión de Usuarios" },
+                      { id: "plazas", title: "Gestión de Plazas de Ayudantía" },
+                      { id: "seguimiento", title: "Seguimiento de Ayudantías" },
+                      { id: "evaluacion", title: "Evaluación y Beneficios" },
+                    ].find((s) => s.id === activeSection)?.title
+                  }
+                </h2>
+                <CardDescription>
+                  {activeSection === "users"
+                    ? "Administra ayudantes y supervisores del sistema."
+                    : activeSection === "plazas"
+                      ? "Crea, edita y elimina las plazas de ayudantía disponibles."
+                      : `Esta sección estará disponible próximamente.`}
+                </CardDescription>
               </div>
 
               <div>
-                  {activeSection === "users" && (
-                      <Button className="bg-primary hover:bg-primary/90" onClick={handleCreateUser}>
-                          <Plus className="mr-2 h-4 w-4" />
-                          Agregar Nuevo
-                      </Button>
-                  )}
-                  {activeSection === "plazas" && (
-                      <Button onClick={() => { setShowPlazaModal(true); setEditingPlaza(null); setPlazaNombre(""); }}>
-                          <Plus className="mr-2 h-4 w-4" />
-                          Nueva Plaza
-                      </Button>
-                  )}
+                {activeSection === "users" && (
+                  <Button className="bg-primary hover:bg-primary/90" onClick={handleCreateUser}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Agregar Nuevo
+                  </Button>
+                )}
+                {activeSection === "plazas" && (
+                  <Button
+                    onClick={() => {
+                      setShowPlazaModal(true)
+                      setEditingPlaza(null)
+                      setPlazaNombre("")
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nueva Plaza
+                  </Button>
+                )}
               </div>
-          </div>
+            </div>
 
             <Card className="border-border/50">
               <CardHeader>
                 <CardTitle className="text-foreground">
-                    {
-                        [
-                            { id: "users", title: "Lista de Usuarios" },
-                            { id: "plazas", title: "Lista de Plazas" },
-                            { id: "seguimiento", title: "Seguimiento" },
-                            { id: "evaluacion", title: "Evaluación" },
-                        ].find((s) => s.id === activeSection)?.title
-                    }
+                  {
+                    [
+                      { id: "users", title: "Lista de Usuarios" },
+                      { id: "plazas", title: "Lista de Plazas" },
+                      { id: "seguimiento", title: "Seguimiento" },
+                      { id: "evaluacion", title: "Evaluación" },
+                    ].find((s) => s.id === activeSection)?.title
+                  }
                 </CardTitle>
                 <CardDescription>
-                    {activeSection === "users"
-                        ? "Visualiza, edita o elimina los ayudantes y supervisores registrados."
-                        : activeSection === "plazas"
-                            ? "Administra las plazas disponibles para las ayudantías."
-                            : `Esta funcionalidad estará disponible próximamente.`}
+                  {activeSection === "users"
+                    ? "Visualiza, edita o elimina los ayudantes y supervisores registrados."
+                    : activeSection === "plazas"
+                      ? "Administra las plazas disponibles para las ayudantías."
+                      : `Esta funcionalidad estará disponible próximamente.`}
                 </CardDescription>
-            </CardHeader>
+              </CardHeader>
               <CardContent>
                 {activeSection === "users" ? (
                   <div className="space-y-4">
@@ -1544,9 +1563,7 @@ export default function AdminDashboardPage() {
                   </div>
                 ) : activeSection === "plazas" ? (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-end">
-                      
-                    </div>
+                    <div className="flex items-center justify-end"></div>
                     <Card>
                       <CardContent className="pt-6">
                         {loadingPlazas ? (
@@ -1574,9 +1591,9 @@ export default function AdminDashboardPage() {
                                       size="sm"
                                       title="Editar plaza"
                                       onClick={() => {
-                                        setEditingPlaza(plaza);
-                                        setNuevoNombrePlaza(plaza.nombre);
-                                        setShowPlazaModal(true);
+                                        setEditingPlaza(plaza)
+                                        setNuevoNombrePlaza(plaza.nombre)
+                                        setShowPlazaModal(true)
                                       }}
                                     >
                                       <Edit className="h-4 w-4" />
@@ -1599,29 +1616,37 @@ export default function AdminDashboardPage() {
                     </Card>
 
                     {/* Modal para crear/editar plaza */}
-                    <Dialog open={showPlazaModal} onOpenChange={(open) => {
-                      setShowPlazaModal(open);
-                      if (!open) {
-                        setEditingPlaza(null);
-                        setPlazaNombre("");
-                        setNuevoNombrePlaza("");
-                      }
-                    }}>
+                    <Dialog
+                      open={showPlazaModal}
+                      onOpenChange={(open) => {
+                        setShowPlazaModal(open)
+                        if (!open) {
+                          setEditingPlaza(null)
+                          setPlazaNombre("")
+                          setNuevoNombrePlaza("")
+                        }
+                      }}
+                    >
                       <DialogContent>
                         <DialogTitle>{editingPlaza ? "Editar Plaza" : "Nueva Plaza"}</DialogTitle>
                         <div className="space-y-4">
                           <Input
                             placeholder="Nombre de la plaza"
                             value={editingPlaza ? nuevoNombrePlaza : plazaNombre}
-                            onChange={e => editingPlaza ? setNuevoNombrePlaza(e.target.value) : setPlazaNombre(e.target.value)}
+                            onChange={(e) =>
+                              editingPlaza ? setNuevoNombrePlaza(e.target.value) : setPlazaNombre(e.target.value)
+                            }
                           />
                           <div className="flex justify-end space-x-2">
-                            <Button variant="outline" onClick={() => {
-                              setShowPlazaModal(false);
-                              setEditingPlaza(null);
-                              setPlazaNombre("");
-                              setNuevoNombrePlaza("");
-                            }}>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setShowPlazaModal(false)
+                                setEditingPlaza(null)
+                                setPlazaNombre("")
+                                setNuevoNombrePlaza("")
+                              }}
+                            >
                               Cancelar
                             </Button>
                             <Button
@@ -1635,9 +1660,7 @@ export default function AdminDashboardPage() {
                       </DialogContent>
                     </Dialog>
                   </div>
-               
-                ):(
-                  
+                ) : (
                   <div className="text-center py-12">
                     <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
                       {
