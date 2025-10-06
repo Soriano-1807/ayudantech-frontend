@@ -151,6 +151,7 @@ export default function AdminDashboardPage() {
   const [plazaNombre, setPlazaNombre] = useState("")
   const [editingPlaza, setEditingPlaza] = useState<Plaza | null>(null)
   const [nuevoNombrePlaza, setNuevoNombrePlaza] = useState("")
+  const [plazaMensaje, setPlazaMensaje] = useState<string | null>(null) 
 
   const [searchTerm, setSearchTerm] = useState("")
 
@@ -387,6 +388,8 @@ export default function AdminDashboardPage() {
         setPlazaNombre("")
         setShowPlazaModal(false)
         fetchPlazas()
+        setPlazaMensaje("✅Plaza creada exitosamente")
+        setTimeout(() => setPlazaMensaje(null), 3000)
       }
     } catch {}
   }
@@ -405,6 +408,8 @@ export default function AdminDashboardPage() {
         setNuevoNombrePlaza("")
         setShowPlazaModal(false)
         fetchPlazas()
+        setPlazaMensaje("✅Plaza editada exitosamente")
+        setTimeout(() => setPlazaMensaje(null), 3000)
       }
     } catch {}
   }
@@ -1563,6 +1568,12 @@ export default function AdminDashboardPage() {
                   </div>
                 ) : activeSection === "plazas" ? (
                   <div className="space-y-6">
+                    {/*Mensaje de confirmacion de plaza */}
+                    {plazaMensaje && (
+                      <div className = "p-3 bg-green-100 border border-green-400 rounded-md text-green-900 font-semibold">
+                        {plazaMensaje}
+                      </div>
+                    )}
                     <div className="flex items-center justify-end"></div>
                     <Card>
                       <CardContent className="pt-6">
