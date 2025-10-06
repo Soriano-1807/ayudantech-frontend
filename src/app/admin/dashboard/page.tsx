@@ -388,10 +388,27 @@ export default function AdminDashboardPage() {
         setPlazaNombre("")
         setShowPlazaModal(false)
         fetchPlazas()
-        setPlazaMensaje("✅Plaza creada exitosamente")
+        setPlazaMensaje("✅ Plaza creada exitosamente")
         setTimeout(() => setPlazaMensaje(null), 3000)
+      } else {
+        const errorData = await res.json()
+        if (
+          errorData.error &&
+          (errorData.error.toLowerCase().includes("duplicate") ||
+           errorData.error.toLowerCase().includes("ya existe") ||
+           errorData.error.toLowerCase().includes("duplicado"))
+        ) {
+          setPlazaMensaje("❌ Ya existe una plaza con ese nombre.")
+          setTimeout(() => setPlazaMensaje(null), 3000)
+        } else {
+          setPlazaMensaje("❌ Error al crear la plaza.")
+          setTimeout(() => setPlazaMensaje(null), 3000)
+        }
       }
-    } catch {}
+    } catch {
+      setPlazaMensaje("❌ Error de conexión al crear la plaza.")
+      setTimeout(() => setPlazaMensaje(null), 3000)
+    }
   }
 
   const handleEditPlaza = async () => {
@@ -1635,11 +1652,22 @@ export default function AdminDashboardPage() {
                           setEditingPlaza(null)
                           setPlazaNombre("")
                           setNuevoNombrePlaza("")
+                          setPlazaMensaje(null)
                         }
                       }}
                     >
                       <DialogContent>
                         <DialogTitle>{editingPlaza ? "Editar Plaza" : "Nueva Plaza"}</DialogTitle>
+                        {/* Mensaje de error o éxito dentro del modal */}
+                        {plazaMensaje && (
+                          <div className={`p-3 rounded-md font-semibold mb-2 ${
+                            plazaMensaje.startsWith("✅")
+                              ? "bg-green-100 border border-green-400 text-green-900"
+                              : "bg-red-100 border border-red-400 text-red-900"
+                          }`}>
+                            {plazaMensaje}
+                          </div>
+                        )}
                         <div className="space-y-4">
                           <Input
                             placeholder="Nombre de la plaza"
@@ -1656,6 +1684,7 @@ export default function AdminDashboardPage() {
                                 setEditingPlaza(null)
                                 setPlazaNombre("")
                                 setNuevoNombrePlaza("")
+                                setPlazaMensaje(null)
                               }}
                             >
                               Cancelar
@@ -1845,6 +1874,8 @@ export default function AdminDashboardPage() {
                   <p className="text-sm text-green-800">{apiMessage}</p>
                 </div>
               )}
+
+
 
               {apiError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-md">
@@ -2163,86 +2194,6 @@ export default function AdminDashboardPage() {
               </Button>
               <Button type="submit" disabled={isSubmittingEditAssistant}>
                 {isSubmittingEditAssistant ? "Guardando..." : "Guardar Cambios"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showEditSupervisorModal} onOpenChange={() => {}}>
-        <DialogContent
-          className="sm:max-w-md"
-          showCloseButton={false}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
-          <DialogTitle className="text-lg font-semibold">Editar Supervisor</DialogTitle>
-
-          <div className="space-y-2 pb-4">
-            <p className="text-sm text-muted-foreground">
-              Modifica la información del supervisor {editingSupervisor?.nombre}
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmitEditSupervisor(onSubmitEditSupervisor)} className="space-y-4 py-4">
-            {apiMessage && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                <p className="text-sm text-green-800">{apiMessage}</p>
-              </div>
-            )}
-
-            {apiError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-800">❌ {apiError}</p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-supervisor-cedula">Cédula</Label>
-                <Input
-                  id="edit-supervisor-cedula"
-                  value={editingSupervisor?.cedula || ""}
-                  disabled
-                  className="bg-muted text-muted-foreground cursor-not-allowed"
-                />
-                <p className="text-xs text-muted-foreground">La cédula no se puede modificar</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-supervisor-nombre">Nombre Completo</Label>
-                <Input
-                  id="edit-supervisor-nombre"
-                  placeholder="Juan Pérez"
-                  {...registerEditSupervisor("nombre")}
-                  className={errorsEditSupervisor.nombre ? "border-red-500" : ""}
-                />
-                {errorsEditSupervisor.nombre && (
-                  <p className="text-sm text-red-500">{errorsEditSupervisor.nombre.message}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-supervisor-correo">Correo Electrónico</Label>
-              <Input
-                id="edit-supervisor-correo"
-                type="email"
-                placeholder="juan.perez@correo.unimet.edu.ve"
-                {...registerEditSupervisor("correo")}
-                className={errorsEditSupervisor.correo ? "border-red-500" : ""}
-              />
-              {errorsEditSupervisor.correo && (
-                <p className="text-sm text-red-500">{errorsEditSupervisor.correo.message}</p>
-              )}
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={handleCloseModal}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSubmittingEditSupervisor}>
-                {isSubmittingEditSupervisor ? "Guardando..." : "Guardar Cambios"}
               </Button>
             </div>
           </form>
