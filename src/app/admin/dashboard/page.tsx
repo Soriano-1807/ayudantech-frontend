@@ -152,7 +152,8 @@ export default function AdminDashboardPage() {
   const [editingPlaza, setEditingPlaza] = useState<Plaza | null>(null)
   const [nuevoNombrePlaza, setNuevoNombrePlaza] = useState("")
   const [plazaMensaje, setPlazaMensaje] = useState<string | null>(null) 
-
+  const [showDeletePlazaConfirmModal, setShowDeletePlazaConfirmModal] = useState(false)
+  const [deletingPlaza, setDeletingPlaza] = useState<Plaza | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
 
   const {
@@ -437,6 +438,33 @@ export default function AdminDashboardPage() {
       const res = await fetch(`${apiUrl}/plazas/${nombre}`, { method: "DELETE" })
       if (res.ok) fetchPlazas()
     } catch {}
+  }
+
+  const confirmDeletePlaza = async () => {
+  if (!deletingPlaza) return
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    const res = await fetch(`${apiUrl}/plazas/${deletingPlaza.nombre}`, { method: "DELETE" })
+    if (res.ok) {
+      setPlazaMensaje("✅ Plaza eliminada correctamente")
+      fetchPlazas()
+      setTimeout(() => setPlazaMensaje(null), 3000)
+    } else {
+      setPlazaMensaje("❌ Error al eliminar la plaza")
+      setTimeout(() => setPlazaMensaje(null), 3000)
+    }
+  } catch {
+    setPlazaMensaje("❌ Error de conexión al eliminar la plaza")
+    setTimeout(() => setPlazaMensaje(null), 3000)
+  } finally {
+    setShowDeletePlazaConfirmModal(false)
+    setDeletingPlaza(null)
+  }
+}
+
+  const cancelDeletePlaza = () => {
+    setShowDeletePlazaConfirmModal(false)
+    setDeletingPlaza(null)
   }
 
   useEffect(() => {
@@ -1627,13 +1655,16 @@ export default function AdminDashboardPage() {
                                       <Edit className="h-4 w-4" />
                                     </Button>
                                     <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      title="Eliminar plaza"
-                                      onClick={() => handleDeletePlaza(plaza.nombre)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Eliminar plaza"
+                                    onClick={() => {
+                                      setDeletingPlaza(plaza)
+                                      setShowDeletePlazaConfirmModal(true)
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -2282,6 +2313,29 @@ export default function AdminDashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={showDeletePlazaConfirmModal} onOpenChange={cancelDeletePlaza}>
+  <DialogContent className="sm:max-w-md">
+    <DialogTitle className="flex items-center space-x-2 text-red-600">
+      <AlertTriangle className="h-5 w-5" />
+      <span>Confirmar Eliminación</span>
+    </DialogTitle>
+    <div className="py-4">
+      <p className="text-sm text-muted-foreground mb-4">
+        ¿Estás seguro de que deseas eliminar la plaza{" "}
+        <span className="font-semibold text-foreground">{deletingPlaza?.nombre}</span>?
+      </p>
+      <p className="text-sm text-red-600 font-medium">Esta acción no se puede deshacer.</p>
+    </div>
+    <div className="flex justify-end space-x-2">
+      <Button type="button" variant="outline" onClick={cancelDeletePlaza}>
+        Cancelar
+      </Button>
+      <Button type="button" variant="destructive" onClick={confirmDeletePlaza}>
+        Eliminar
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   )
 }
