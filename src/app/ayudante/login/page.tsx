@@ -37,6 +37,7 @@ export default function AyudanteLoginPage() {
       const data = await response.json()
 
       if (response.ok) {
+        localStorage.setItem("ayudanteEmail", email)
         router.push("/ayudante/dashboard")
       } else {
         setError(data.error || "Error en el login")
