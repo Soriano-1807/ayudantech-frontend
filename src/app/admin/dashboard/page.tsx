@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -109,10 +111,20 @@ interface Supervisor {
 }
 
 interface Plaza {
+  id: number
   nombre: string
 }
 
-export default function AdminDashboardPage() {
+interface Ayudantia {
+  id: number
+  cedula_ayudante: number
+  tipo_ayudante: string // Updated field name
+  cedula_supervisor: number
+  plaza: string
+  desc_objetivo: string // Added field
+}
+
+export default function AdminDashboard() {
   const router = useRouter()
   const [activeSection, setActiveSection] = useState("users")
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -122,11 +134,11 @@ export default function AdminDashboardPage() {
   const [showEditAssistantModal, setShowEditAssistantModal] = useState(false)
   const [showEditSupervisorModal, setShowEditSupervisorModal] = useState(false)
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
-  const [showDeleteSupervisorConfirmModal, setShowDeleteSupervisorConfirmModal] = useState(false) // Added state for supervisor delete confirmation
+  const [showDeleteSupervisorConfirmModal, setShowDeleteSupervisorConfirmModal] = useState(false)
   const [deletingAssistant, setDeletingAssistant] = useState<Ayudante | null>(null)
-  const [deletingSupervisor, setDeletingSupervisor] = useState<Supervisor | null>(null) // Added state for supervisor being deleted
+  const [deletingSupervisor, setDeletingSupervisor] = useState<Supervisor | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [isDeletingSupervisor, setIsDeletingSupervisor] = useState(false) // Added separate loading state for supervisor deletion
+  const [isDeletingSupervisor, setIsDeletingSupervisor] = useState(false)
   const [editingAssistant, setEditingAssistant] = useState<Ayudante | null>(null)
   const [editingSupervisor, setEditingSupervisor] = useState<Supervisor | null>(null)
   const [apiMessage, setApiMessage] = useState<string | null>(null)
@@ -152,7 +164,17 @@ export default function AdminDashboardPage() {
   const [editingPlaza, setEditingPlaza] = useState<Plaza | null>(null)
   const [nuevoNombrePlaza, setNuevoNombrePlaza] = useState("")
 
+  const [tipos, setTipos] = useState<any[]>([])
+
   const [searchTerm, setSearchTerm] = useState("")
+
+  const [showAyudantiasView, setShowAyudantiasView] = useState(false)
+  const [showCreateAyudantiaModal, setShowCreateAyudantiaModal] = useState(false)
+  const [ayudantias, setAyudantias] = useState<Ayudantia[]>([])
+  const [cedulaAyudante, setCedulaAyudante] = useState("")
+  const [tipoAyudantia, setTipoAyudantia] = useState("")
+  const [cedulaSupervisor, setCedulaSupervisor] = useState("")
+  const [plazaAyudantia, setPlazaAyudantia] = useState("")
 
   const {
     register,
@@ -367,11 +389,29 @@ export default function AdminDashboardPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL
       const res = await fetch(`${apiUrl}/plazas`)
       const data = await res.json()
-      setPlazas(data)
+      const sortedPlazas = data.sort((a: Plaza, b: Plaza) => a.nombre.localeCompare(b.nombre))
+      setPlazas(sortedPlazas)
+      if (sortedPlazas.length > 0 && !plazaAyudantia) {
+        setPlazaAyudantia(sortedPlazas[0].nombre)
+      }
     } catch (err) {
       setPlazas([])
     } finally {
       setLoadingPlazas(false)
+    }
+  }
+
+  const fetchTipos = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      const res = await fetch(`${apiUrl}/tipos-ayudante`)
+      const data = await res.json()
+      setTipos(data)
+      if (data.length > 0 && !tipoAyudantia) {
+        setTipoAyudantia(data[0].tipo)
+      }
+    } catch (err) {
+      setTipos([])
     }
   }
 
@@ -420,6 +460,13 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (activeSection === "plazas") fetchPlazas()
   }, [activeSection])
+
+  useEffect(() => {
+    if (showAyudantiasView) {
+      fetchPlazas()
+      fetchTipos()
+    }
+  }, [showAyudantiasView])
 
   useEffect(() => {
     const selectedFacultad = watch("facultad")
@@ -1225,6 +1272,144 @@ export default function AdminDashboardPage() {
     setErrorDialogMessage("")
   }
 
+  const handleVerCrearAyudantias = () => {
+    // Fetch ayudantias when switching to the view
+    const fetchAyudantias = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL
+        if (!apiUrl) {
+          console.error("API URL not configured")
+          return
+        }
+        const response = await fetch(`${apiUrl}/ayudantias`)
+        if (!response.ok) {
+          throw new Error(`Error fetching ayudantias: ${response.status}`)
+        }
+        const data = await response.json()
+        setAyudantias(data)
+      } catch (error) {
+        console.error("Error fetching ayudantias:", error)
+        setAyudantias([])
+      }
+    }
+    fetchAyudantias()
+    setShowAyudantiasView(true)
+  }
+
+  const handleBackFromAyudantias = () => {
+    setShowAyudantiasView(false)
+  }
+
+  const handleCreateAyudantia = () => {
+    if (plazas.length > 0 && !plazaAyudantia) {
+      setPlazaAyudantia(plazas[0].nombre)
+    }
+    if (tipos.length > 0 && !tipoAyudantia) {
+      setTipoAyudantia(tipos[0].tipo)
+    }
+    setShowCreateAyudantiaModal(true)
+  }
+
+  const handleCloseAyudantiaModal = () => {
+    setShowCreateAyudantiaModal(false)
+    setCedulaAyudante("")
+    setTipoAyudantia("")
+    setCedulaSupervisor("")
+    setPlazaAyudantia("")
+    setApiError(null)
+  }
+
+  const handleSubmitAyudantia = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    console.log("[v0] handleSubmitAyudantia called")
+    console.log("[v0] Form data:", {
+      cedula_ayudante: cedulaAyudante,
+      tipo_ayudante: tipoAyudantia,
+      cedula_supervisor: cedulaSupervisor,
+      plaza: plazaAyudantia,
+    })
+
+    if (!cedulaAyudante || !tipoAyudantia || !cedulaSupervisor || !plazaAyudantia) {
+      setApiError("Por favor, completa todos los campos.")
+      return
+    }
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    console.log("[v0] API URL:", apiUrl)
+
+    if (!apiUrl) {
+      setApiError("URL del backend no configurada.")
+      return
+    }
+
+    try {
+      console.log("[v0] Sending request to:", `${apiUrl}/ayudantias`)
+      const response = await fetch(`${apiUrl}/ayudantias`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cedula_ayudante: cedulaAyudante,
+          tipo_ayudante: tipoAyudantia,
+          cedula_supervisor: cedulaSupervisor,
+          plaza: plazaAyudantia,
+        }),
+      })
+
+      console.log("[v0] Response status:", response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.log("[v0] Error data:", errorData)
+        const errorMessage = errorData.error || errorData.message || "Error al crear la ayudantía"
+
+        // Remove emojis and display clean error messages
+        const cleanMessage = errorMessage.replace(/❌|✅/g, "").trim()
+
+        // Detect specific error cases and show user-friendly messages
+        if (cleanMessage.includes("cédula del ayudante no existe")) {
+          setApiError("La cédula del ayudante no está registrada en el sistema.")
+        } else if (cleanMessage.includes("cédula del supervisor no existe")) {
+          setApiError("La cédula del supervisor no está registrada en el sistema.")
+        } else if (cleanMessage.includes("ya tiene una ayudantía registrada")) {
+          setApiError("Este ayudante ya tiene una ayudantía asignada.")
+        } else {
+          setApiError(cleanMessage)
+        }
+        return
+      }
+
+      const result = await response.json()
+      console.log("[v0] Success result:", result)
+      setApiMessage("Ayudantía creada exitosamente.")
+      handleCloseAyudantiaModal()
+
+      // Refresh the list of ayudantias
+      const fetchAyudantias = async () => {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL
+          if (!apiUrl) {
+            console.error("API URL not configured")
+            return
+          }
+          const response = await fetch(`${apiUrl}/ayudantias`)
+          if (!response.ok) {
+            throw new Error(`Error fetching ayudantias: ${response.status}`)
+          }
+          const data = await response.json()
+          setAyudantias(data)
+        } catch (error) {
+          console.error("Error fetching ayudantias:", error)
+          setAyudantias([])
+        }
+      }
+      fetchAyudantias()
+    } catch (error: any) {
+      console.error("[v0] Error creating ayudantia:", error)
+      setApiError("Error al conectar con el servidor. Por favor, intenta de nuevo.")
+    }
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1327,7 +1512,7 @@ export default function AdminDashboardPage() {
           </div>
         </aside>
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 overflow-x-hidden">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
@@ -1346,7 +1531,11 @@ export default function AdminDashboardPage() {
                     ? "Administra ayudantes y supervisores del sistema."
                     : activeSection === "plazas"
                       ? "Crea, edita y elimina las plazas de ayudantía disponibles."
-                      : `Esta sección estará disponible próximamente.`}
+                      : activeSection === "seguimiento"
+                        ? "Monitorea el progreso y las actividades de las ayudantías."
+                        : activeSection === "evaluacion"
+                          ? "Gestiona las evaluaciones de los ayudantes y sus beneficios."
+                          : `Esta sección estará disponible próximamente.`}
                 </CardDescription>
               </div>
 
@@ -1379,8 +1568,8 @@ export default function AdminDashboardPage() {
                     [
                       { id: "users", title: "Lista de Usuarios" },
                       { id: "plazas", title: "Lista de Plazas" },
-                      { id: "seguimiento", title: "Seguimiento" },
-                      { id: "evaluacion", title: "Evaluación" },
+                      { id: "seguimiento", title: "Seguimiento de Ayudantías" },
+                      { id: "evaluacion", title: "Evaluación y Beneficios" },
                     ].find((s) => s.id === activeSection)?.title
                   }
                 </CardTitle>
@@ -1389,7 +1578,11 @@ export default function AdminDashboardPage() {
                     ? "Visualiza, edita o elimina los ayudantes y supervisores registrados."
                     : activeSection === "plazas"
                       ? "Administra las plazas disponibles para las ayudantías."
-                      : `Esta funcionalidad estará disponible próximamente.`}
+                      : activeSection === "seguimiento"
+                        ? "Revisa las asignaciones, actividades y el progreso de las ayudantías."
+                        : activeSection === "evaluacion"
+                          ? "Gestiona las evaluaciones de los ayudantes y los beneficios asociados."
+                          : `Esta funcionalidad estará disponible próximamente.`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1661,50 +1854,156 @@ export default function AdminDashboardPage() {
                     </Dialog>
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                      {
-                        [
-                          {
-                            id: "users",
-                            title: "Gestión de Usuarios",
-                            description: "Administrar estudiantes, supervisores y coordinadores",
-                            icon: <Users className="h-4 w-4" />,
-                            color: "bg-blue-500",
-                            stats: "156 usuarios activos",
-                          },
-                          {
-                            id: "plazas",
-                            title: "Gestión de Plazas de Ayudantía",
-                            description: "Crear y administrar plazas disponibles",
-                            icon: <Briefcase className="h-4 w-4" />,
-                            color: "bg-green-500",
-                            stats: "24 plazas activas",
-                          },
-                          {
-                            id: "seguimiento",
-                            title: "Seguimiento de Ayudantías",
-                            description: "Monitorear el progreso y actividades",
-                            icon: <TrendingUp className="h-4 w-4" />,
-                            color: "bg-purple-500",
-                            stats: "18 ayudantías en curso",
-                          },
-                          {
-                            id: "evaluacion",
-                            title: "Evaluación y Beneficios",
-                            description: "Gestionar evaluaciones y asignar beneficios",
-                            icon: <Award className="h-4 w-4" />,
-                            color: "bg-orange-500",
-                            stats: "12 evaluaciones pendientes",
-                          },
-                        ].find((s) => s.id === activeSection)?.icon
-                      }
+                  (activeSection === "seguimiento" || activeSection === "evaluacion") && (
+                    <div className="flex flex-col items-center justify-center py-12 gap-6">
+                      {activeSection === "seguimiento" ? (
+                        showAyudantiasView ? (
+                          <div className="w-full">
+                            <div className="flex items-center justify-between mb-6">
+                              <div className="flex items-center gap-4">
+                                <Button variant="outline" size="sm" onClick={handleBackFromAyudantias}>
+                                  <ChevronLeft className="h-4 w-4 mr-2" />
+                                  Volver
+                                </Button>
+                                <h2 className="text-2xl font-bold">Gestión de Ayudantías</h2>
+                              </div>
+                              <Button onClick={handleCreateAyudantia}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Crear Ayudantía
+                              </Button>
+                            </div>
+
+                            <Card>
+                              <CardHeader>
+                                <CardTitle>Lista de Ayudantías</CardTitle>
+                                <CardDescription>Visualiza y gestiona todas las ayudantías activas</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="overflow-x-auto -mx-6 px-6">
+                                  <Table className="min-w-[800px]">
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>ID</TableHead>
+                                        <TableHead>Cédula Ayudante</TableHead>
+                                        <TableHead>Cédula Supervisor</TableHead>
+                                        <TableHead>Plaza</TableHead>
+                                        <TableHead>Descripción Objetivo</TableHead>
+                                        <TableHead>Tipo Ayudante</TableHead>
+                                        <TableHead className="text-right">Acciones</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {ayudantias.length === 0 ? (
+                                        <TableRow>
+                                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                                            No hay ayudantías registradas. Crea una nueva ayudantía para comenzar.
+                                          </TableCell>
+                                        </TableRow>
+                                      ) : (
+                                        ayudantias.map((ayudantia) => (
+                                          <TableRow key={ayudantia.id}>
+                                            <TableCell>{ayudantia.id}</TableCell>
+                                            <TableCell>{ayudantia.cedula_ayudante}</TableCell>
+                                            <TableCell>{ayudantia.cedula_supervisor}</TableCell>
+                                            <TableCell>{ayudantia.plaza}</TableCell>
+                                            <TableCell>{ayudantia.desc_objetivo}</TableCell>
+                                            <TableCell>{ayudantia.tipo_ayudante}</TableCell>
+                                            <TableCell className="text-right">
+                                              <Button variant="ghost" size="sm">
+                                                <Edit className="h-4 w-4" />
+                                              </Button>
+                                              <Button variant="ghost" size="sm">
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            </TableCell>
+                                          </TableRow>
+                                        ))
+                                      )}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
+                            <Card
+                              className="border-2 border-border hover:border-primary/50 transition-colors cursor-pointer group"
+                              onClick={handleVerCrearAyudantias}
+                            >
+                              <CardHeader className="text-center pb-4">
+                                <div className="mx-auto h-16 w-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition-colors">
+                                  <Briefcase className="h-8 w-8 text-blue-500" />
+                                </div>
+                                <CardTitle className="text-xl">Ver y Crear Ayudantías</CardTitle>
+                                <CardDescription className="mt-2">
+                                  Gestiona las ayudantías activas y crea nuevas asignaciones
+                                </CardDescription>
+                              </CardHeader>
+                            </Card>
+
+                            <Card className="border-2 border-border hover:border-primary/50 transition-colors cursor-pointer group">
+                              <CardHeader className="text-center pb-4">
+                                <div className="mx-auto h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center mb-4 group-hover:bg-green-500/20 transition-colors">
+                                  <TrendingUp className="h-8 w-8 text-green-500" />
+                                </div>
+                                <CardTitle className="text-xl">Ver Actividades</CardTitle>
+                                <CardDescription className="mt-2">
+                                  Monitorea el progreso y las actividades realizadas
+                                </CardDescription>
+                              </CardHeader>
+                            </Card>
+                          </div>
+                        )
+                      ) : (
+                        // This is the placeholder for the 'evaluacion' section
+                        <div>
+                          <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                            {
+                              [
+                                {
+                                  id: "users",
+                                  title: "Gestión de Usuarios",
+                                  description: "Administrar estudiantes, supervisores y coordinadores",
+                                  icon: <Users className="h-4 w-4" />,
+                                  color: "bg-blue-500",
+                                  stats: "156 usuarios activos",
+                                },
+                                {
+                                  id: "plazas",
+                                  title: "Gestión de Plazas de Ayudantía",
+                                  description: "Crear y administrar plazas disponibles",
+                                  icon: <Briefcase className="h-4 w-4" />,
+                                  color: "bg-green-500",
+                                  stats: "24 plazas activas",
+                                },
+                                {
+                                  id: "seguimiento",
+                                  title: "Seguimiento de Ayudantías",
+                                  description: "Monitorear el progreso y actividades",
+                                  icon: <TrendingUp className="h-4 w-4" />,
+                                  color: "bg-purple-500",
+                                  stats: "18 ayudantías en curso",
+                                },
+                                {
+                                  id: "evaluacion",
+                                  title: "Evaluación y Beneficios",
+                                  description: "Gestionar evaluaciones y asignar beneficios",
+                                  icon: <Award className="h-4 w-4" />,
+                                  color: "bg-orange-500",
+                                  stats: "12 evaluaciones pendientes",
+                                },
+                              ].find((s) => s.id === activeSection)?.icon
+                            }
+                          </div>
+                          <h3 className="text-lg font-medium text-foreground mb-2">Próximamente</h3>
+                          <p className="text-muted-foreground mb-4">
+                            Esta funcionalidad se desarrollará en las próximas iteraciones.
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    <h3 className="text-lg font-medium text-foreground mb-2">Próximamente</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Esta funcionalidad se desarrollará en las próximas iteraciones.
-                    </p>
-                  </div>
+                  )
                 )}
               </CardContent>
             </Card>
@@ -2318,6 +2617,96 @@ export default function AdminDashboardPage() {
               {isDeletingSupervisor ? "Eliminando..." : "Eliminar"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCreateAyudantiaModal} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="text-lg font-semibold">Crear Ayudantía</DialogTitle>
+
+          <div className="space-y-2 pb-4">
+            <p className="text-sm text-muted-foreground">Completa los datos para crear una nueva ayudantía</p>
+          </div>
+
+          {apiError && (
+            <div className="rounded-md bg-red-50 p-4 mb-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">{apiError}</h3>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmitAyudantia} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="cedula-ayudante">Cédula Ayudante</Label>
+              <Input
+                id="cedula-ayudante"
+                type="text"
+                placeholder="12345678"
+                value={cedulaAyudante}
+                onChange={(e) => setCedulaAyudante(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tipo">Tipo</Label>
+              <Select value={tipoAyudantia} onValueChange={setTipoAyudantia}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tipos.map((tipo) => (
+                    <SelectItem key={tipo.tipo} value={tipo.tipo}>
+                      {tipo.tipo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cedula-supervisor">Cédula Supervisor</Label>
+              <Input
+                id="cedula-supervisor"
+                type="text"
+                placeholder="87654321"
+                value={cedulaSupervisor}
+                onChange={(e) => setCedulaSupervisor(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="plaza">Plaza</Label>
+              <Select value={plazaAyudantia} onValueChange={setPlazaAyudantia}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una plaza" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plazas.map((plaza) => (
+                    <SelectItem key={plaza.nombre} value={plaza.nombre}>
+                      {plaza.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseAyudantiaModal}>
+                Cancelar
+              </Button>
+              <Button type="submit">Crear Ayudantía</Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
