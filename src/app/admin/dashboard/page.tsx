@@ -160,9 +160,10 @@ export default function AdminDashboardPage() {
   const [plazaNombre, setPlazaNombre] = useState("")
   const [editingPlaza, setEditingPlaza] = useState<Plaza | null>(null)
   const [nuevoNombrePlaza, setNuevoNombrePlaza] = useState("")
-  const [plazaMensaje, setPlazaMensaje] = useState<string | null>(null) 
-  const [showDeletePlazaConfirmModal, setShowDeletePlazaConfirmModal] = useState(false)
-  const [deletingPlaza, setDeletingPlaza] = useState<Plaza | null>(null)
+
+  const [showAyudantiasView, setShowAyudantiasView] = useState(false)
+  const [showCreateAyudantiaModal, setShowCreateAyudantiaModal] = useState(false)
+
   const [searchTerm, setSearchTerm] = useState("")
 
   const {
@@ -408,27 +409,8 @@ export default function AdminDashboardPage() {
         setPlazaNombre("")
         setShowPlazaModal(false)
         fetchPlazas()
-        setPlazaMensaje("✅ Plaza creada exitosamente")
-        setTimeout(() => setPlazaMensaje(null), 3000)
-      } else {
-        const errorData = await res.json()
-        if (
-          errorData.error &&
-          (errorData.error.toLowerCase().includes("duplicate") ||
-           errorData.error.toLowerCase().includes("ya existe") ||
-           errorData.error.toLowerCase().includes("duplicado"))
-        ) {
-          setPlazaMensaje("❌ Ya existe una plaza con ese nombre.")
-          setTimeout(() => setPlazaMensaje(null), 3000)
-        } else {
-          setPlazaMensaje("❌ Error al crear la plaza.")
-          setTimeout(() => setPlazaMensaje(null), 3000)
-        }
       }
-    } catch {
-      setPlazaMensaje("❌ Error de conexión al crear la plaza.")
-      setTimeout(() => setPlazaMensaje(null), 3000)
-    }
+    } catch {}
   }
 
   const handleEditPlaza = async () => {
@@ -445,8 +427,6 @@ export default function AdminDashboardPage() {
         setNuevoNombrePlaza("")
         setShowPlazaModal(false)
         fetchPlazas()
-        setPlazaMensaje("✅Plaza editada exitosamente")
-        setTimeout(() => setPlazaMensaje(null), 3000)
       }
     } catch {}
   }
@@ -457,33 +437,6 @@ export default function AdminDashboardPage() {
       const res = await fetch(`${apiUrl}/plazas/${nombre}`, { method: "DELETE" })
       if (res.ok) fetchPlazas()
     } catch {}
-  }
-
-  const confirmDeletePlaza = async () => {
-  if (!deletingPlaza) return
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL
-    const res = await fetch(`${apiUrl}/plazas/${deletingPlaza.nombre}`, { method: "DELETE" })
-    if (res.ok) {
-      setPlazaMensaje("✅ Plaza eliminada correctamente")
-      fetchPlazas()
-      setTimeout(() => setPlazaMensaje(null), 3000)
-    } else {
-      setPlazaMensaje("❌ Error al eliminar la plaza")
-      setTimeout(() => setPlazaMensaje(null), 3000)
-    }
-  } catch {
-    setPlazaMensaje("❌ Error de conexión al eliminar la plaza")
-    setTimeout(() => setPlazaMensaje(null), 3000)
-  } finally {
-    setShowDeletePlazaConfirmModal(false)
-    setDeletingPlaza(null)
-  }
-}
-
-  const cancelDeletePlaza = () => {
-    setShowDeletePlazaConfirmModal(false)
-    setDeletingPlaza(null)
   }
 
   useEffect(() => {
@@ -1507,191 +1460,211 @@ export default function AdminDashboardPage() {
                       </div>
                     </TabsContent>
 
-                      <TabsContent value="supervisores" className="space-y-4">
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
+                    <TabsContent value="supervisores" className="space-y-4">
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Cédula</TableHead>
+                              <TableHead>Nombre</TableHead>
+                              <TableHead>Correo</TableHead>
+                              <TableHead className="text-right">Acciones</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {loadingSupervisores ? (
                               <TableRow>
-                                <TableHead>Cédula</TableHead>
-                                <TableHead>Nombre</TableHead>
-                                <TableHead>Correo</TableHead>
-                                <TableHead className="text-right">Acciones</TableHead>
+                                <TableCell colSpan={4} className="text-center py-8">
+                                  <div className="flex items-center justify-center space-x-2">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                                    <span>Cargando supervisores...</span>
+                                  </div>
+                                </TableCell>
                               </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {loadingSupervisores ? (
-                                <TableRow>
-                                  <TableCell colSpan={4} className="text-center py-8">
-                                    <div className="flex items-center justify-center space-x-2">
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                                      <span>Cargando supervisores...</span>
+                            ) : filteredSupervisores.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                  {searchTerm
+                                    ? `No se encontraron supervisores que coincidan con "${searchTerm}"`
+                                    : "No hay supervisores registrados"}
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredSupervisores.map((supervisor) => (
+                                <TableRow key={supervisor.cedula}>
+                                  <TableCell className="font-medium">{supervisor.cedula}</TableCell>
+                                  <TableCell>{supervisor.nombre}</TableCell>
+                                  <TableCell>{supervisor.correo}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end space-x-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                                        title="Editar supervisor"
+                                        onClick={() => handleEditSupervisor(supervisor)}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                        title="Eliminar supervisor"
+                                        onClick={() => handleDeleteSupervisor(supervisor)} // Added onClick handler for supervisor delete button
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
                                     </div>
                                   </TableCell>
                                 </TableRow>
-                              ) : filteredSupervisores.length === 0 ? (
-                                <TableRow>
-                                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                    {searchTerm
-                                      ? `No se encontraron supervisores que coincidan con "${searchTerm}"`
-                                      : "No hay supervisores registrados"}
-                                  </TableCell>
-                                </TableRow>
-                              ) : (
-                                filteredSupervisores.map((supervisor) => (
-                                  <TableRow key={supervisor.cedula}>
-                                    <TableCell className="font-medium">{supervisor.cedula}</TableCell>
-                                    <TableCell>{supervisor.nombre}</TableCell>
-                                    <TableCell>{supervisor.correo}</TableCell>
-                                    <TableCell className="text-right">
-                                      <div className="flex items-center justify-end space-x-2">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
-                                          title="Editar supervisor"
-                                          onClick={() => handleEditSupervisor(supervisor)}
-                                        >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                                          title="Eliminar supervisor"
-                                          onClick={() => handleDeleteSupervisor(supervisor)} // Added onClick handler for supervisor delete button
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                ))
-                              )}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                  </div>
-                ) : activeSection === "plazas" ? (
-                  <div className="space-y-6">
-                    {/*Mensaje de confirmacion de plaza */}
-                    {plazaMensaje && (
-                      <div className = "p-3 bg-green-100 border border-green-400 rounded-md text-green-900 font-semibold">
-                        {plazaMensaje}
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
                       </div>
-                    )}
-                    <div className="flex items-center justify-end"></div>
-                    <Card>
-                      <CardContent className="pt-6">
-                        {loadingPlazas ? (
-                          <div className="flex items-center justify-center py-8">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2"></div>
-                            <span>Cargando plazas...</span>
-                          </div>
-                        ) : plazas.length === 0 ? (
-                          <div className="text-center text-muted-foreground py-8">No hay plazas registradas.</div>
-                        ) : (
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Nombre</TableHead>
-                                <TableHead className="text-right">Acciones</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {plazas.map((plaza) => (
-                                <TableRow key={plaza.nombre}>
-                                  <TableCell>{plaza.nombre}</TableCell>
-                                  <TableCell className="text-right">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      title="Editar plaza"
-                                      onClick={() => {
-                                        setEditingPlaza(plaza)
-                                        setNuevoNombrePlaza(plaza.nombre)
-                                        setShowPlazaModal(true)
-                                      }}
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              ) : activeSection === "plazas" ? (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-end"></div>
+                  <Card>
+                    <CardContent className="pt-6">
+                      {loadingPlazas ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2"></div>
+                          <span>Cargando plazas...</span>
+                        </div>
+                      ) : plazas.length === 0 ? (
+                        <div className="text-center text-muted-foreground py-8">No hay plazas registradas.</div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Nombre</TableHead>
+                              <TableHead className="text-right">Acciones</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {plazas.map((plaza) => (
+                              <TableRow key={plaza.nombre}>
+                                <TableCell>{plaza.nombre}</TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Editar plaza"
+                                    onClick={() => {
+                                      setEditingPlaza(plaza)
+                                      setNuevoNombrePlaza(plaza.nombre)
+                                      setShowPlazaModal(true)
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
                                     variant="ghost"
                                     size="sm"
                                     title="Eliminar plaza"
-                                    onClick={() => {
-                                      setDeletingPlaza(plaza)
-                                      setShowDeletePlazaConfirmModal(true)
-                                    }}
+                                    onClick={() => handleDeletePlaza(plaza.nombre)}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Modal para crear/editar plaza */}
+                  <Dialog
+                    open={showPlazaModal}
+                    onOpenChange={(open) => {
+                      setShowPlazaModal(open)
+                      if (!open) {
+                        setEditingPlaza(null)
+                        setPlazaNombre("")
+                        setNuevoNombrePlaza("")
+                      }
+                    }}
+                  >
+                    <DialogContent>
+                      <DialogTitle>{editingPlaza ? "Editar Plaza" : "Nueva Plaza"}</DialogTitle>
+                      <div className="space-y-4">
+                        <Input
+                          placeholder="Nombre de la plaza"
+                          value={editingPlaza ? nuevoNombrePlaza : plazaNombre}
+                          onChange={(e) =>
+                            editingPlaza ? setNuevoNombrePlaza(e.target.value) : setPlazaNombre(e.target.value)
+                          }
+                        />
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setShowPlazaModal(false)
+                              setEditingPlaza(null)
+                              setPlazaNombre("")
+                              setNuevoNombrePlaza("")
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            onClick={editingPlaza ? handleEditPlaza : handleCreatePlaza}
+                            disabled={!(editingPlaza ? nuevoNombrePlaza : plazaNombre)}
+                          >
+                            {editingPlaza ? "Guardar Cambios" : "Crear"}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              ) : activeSection === "seguimiento" ? (
+                showAyudantiasView ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <Button variant="outline" size="sm" onClick={handleBackToSeguimiento}>
+                          <ChevronLeft className="h-4 w-4 mr-2" />
+                          Volver
+                        </Button>
+                        <h3 className="text-2xl font-semibold">Gestión de Ayudantías</h3>
+                      </div>
+                      <Button onClick={() => setShowCreateAyudantiaModal(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Crear Ayudantía
+                      </Button>
+                    </div>
+
+                    <Card>
+                      <CardContent className="p-6">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Cédula Ayudante</TableHead>
+                              <TableHead>Nombre Ayudante</TableHead>
+                              <TableHead>Tipo</TableHead>
+                              <TableHead>Supervisor</TableHead>
+                              <TableHead>Plaza</TableHead>
+                              <TableHead>Acciones</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                No hay ayudantías registradas. Crea una nueva ayudantía para comenzar.
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
                       </CardContent>
                     </Card>
-
-                    {/* Modal para crear/editar plaza */}
-                    <Dialog
-                      open={showPlazaModal}
-                      onOpenChange={(open) => {
-                        setShowPlazaModal(open)
-                        if (!open) {
-                          setEditingPlaza(null)
-                          setPlazaNombre("")
-                          setNuevoNombrePlaza("")
-                          setPlazaMensaje(null)
-                        }
-                      }}
-                    >
-                      <DialogContent>
-                        <DialogTitle>{editingPlaza ? "Editar Plaza" : "Nueva Plaza"}</DialogTitle>
-                        {/* Mensaje de error o éxito dentro del modal */}
-                        {plazaMensaje && (
-                          <div className={`p-3 rounded-md font-semibold mb-2 ${
-                            plazaMensaje.startsWith("✅")
-                              ? "bg-green-100 border border-green-400 text-green-900"
-                              : "bg-red-100 border border-red-400 text-red-900"
-                          }`}>
-                            {plazaMensaje}
-                          </div>
-                        )}
-                        <div className="space-y-4">
-                          <Input
-                            placeholder="Nombre de la plaza"
-                            value={editingPlaza ? nuevoNombrePlaza : plazaNombre}
-                            onChange={(e) =>
-                              editingPlaza ? setNuevoNombrePlaza(e.target.value) : setPlazaNombre(e.target.value)
-                            }
-                          />
-                          <div className="flex justify-end space-x-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setShowPlazaModal(false)
-                                setEditingPlaza(null)
-                                setPlazaNombre("")
-                                setNuevoNombrePlaza("")
-                                setPlazaMensaje(null)
-                              }}
-                            >
-                              Cancelar
-                            </Button>
-                            <Button
-                              onClick={editingPlaza ? handleEditPlaza : handleCreatePlaza}
-                              disabled={!(editingPlaza ? nuevoNombrePlaza : plazaNombre)}
-                            >
-                              {editingPlaza ? "Guardar Cambios" : "Crear"}
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-8">
@@ -1905,8 +1878,6 @@ export default function AdminDashboardPage() {
                   <p className="text-sm text-green-800">{apiMessage}</p>
                 </div>
               )}
-
-
 
               {apiError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-md">
@@ -2231,6 +2202,86 @@ export default function AdminDashboardPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showEditSupervisorModal} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="text-lg font-semibold">Editar Supervisor</DialogTitle>
+
+          <div className="space-y-2 pb-4">
+            <p className="text-sm text-muted-foreground">
+              Modifica la información del supervisor {editingSupervisor?.nombre}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmitEditSupervisor(onSubmitEditSupervisor)} className="space-y-4 py-4">
+            {apiMessage && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-sm text-green-800">{apiMessage}</p>
+              </div>
+            )}
+
+            {apiError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">❌ {apiError}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-supervisor-cedula">Cédula</Label>
+                <Input
+                  id="edit-supervisor-cedula"
+                  value={editingSupervisor?.cedula || ""}
+                  disabled
+                  className="bg-muted text-muted-foreground cursor-not-allowed"
+                />
+                <p className="text-xs text-muted-foreground">La cédula no se puede modificar</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-supervisor-nombre">Nombre Completo</Label>
+                <Input
+                  id="edit-supervisor-nombre"
+                  placeholder="Juan Pérez"
+                  {...registerEditSupervisor("nombre")}
+                  className={errorsEditSupervisor.nombre ? "border-red-500" : ""}
+                />
+                {errorsEditSupervisor.nombre && (
+                  <p className="text-sm text-red-500">{errorsEditSupervisor.nombre.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-supervisor-correo">Correo Electrónico</Label>
+              <Input
+                id="edit-supervisor-correo"
+                type="email"
+                placeholder="juan.perez@correo.unimet.edu.ve"
+                {...registerEditSupervisor("correo")}
+                className={errorsEditSupervisor.correo ? "border-red-500" : ""}
+              />
+              {errorsEditSupervisor.correo && (
+                <p className="text-sm text-red-500">{errorsEditSupervisor.correo.message}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseModal}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSubmittingEditSupervisor}>
+                {isSubmittingEditSupervisor ? "Guardando..." : "Guardar Cambios"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showDeleteConfirmModal} onOpenChange={() => {}}>
         <DialogContent
           className="sm:max-w-md"
@@ -2313,29 +2364,107 @@ export default function AdminDashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog open={showDeletePlazaConfirmModal} onOpenChange={cancelDeletePlaza}>
-  <DialogContent className="sm:max-w-md">
-    <DialogTitle className="flex items-center space-x-2 text-red-600">
-      <AlertTriangle className="h-5 w-5" />
-      <span>Confirmar Eliminación</span>
-    </DialogTitle>
-    <div className="py-4">
-      <p className="text-sm text-muted-foreground mb-4">
-        ¿Estás seguro de que deseas eliminar la plaza{" "}
-        <span className="font-semibold text-foreground">{deletingPlaza?.nombre}</span>?
-      </p>
-      <p className="text-sm text-red-600 font-medium">Esta acción no se puede deshacer.</p>
-    </div>
-    <div className="flex justify-end space-x-2">
-      <Button type="button" variant="outline" onClick={cancelDeletePlaza}>
-        Cancelar
-      </Button>
-      <Button type="button" variant="destructive" onClick={confirmDeletePlaza}>
-        Eliminar
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
+
+      <Dialog open={showCreateAyudantiaModal} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="text-lg font-semibold">Crear Ayudantía</DialogTitle>
+
+          <div className="space-y-2 pb-4">
+            <p className="text-sm text-muted-foreground">Completa los datos para crear una nueva ayudantía</p>
+          </div>
+
+          <form onSubmit={handleSubmitAyudantia(onSubmitAyudantia)} className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cedula-ayudante">Cédula Ayudante</Label>
+                <Input
+                  id="cedula-ayudante"
+                  placeholder="12345678"
+                  {...registerAyudantia("cedula_ayudante")}
+                  className={errorsAyudantia.cedula_ayudante ? "border-red-500" : ""}
+                />
+                {errorsAyudantia.cedula_ayudante && (
+                  <p className="text-sm text-red-500">{errorsAyudantia.cedula_ayudante.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tipo">Tipo</Label>
+                <Controller
+                  name="tipo"
+                  control={controlAyudantia}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className={errorsAyudantia.tipo ? "border-red-500" : ""}>
+                        <SelectValue placeholder="Selecciona un tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="placeholder">Tipo 1 (Placeholder)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errorsAyudantia.tipo && <p className="text-sm text-red-500">{errorsAyudantia.tipo.message}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cedula-supervisor">Cédula Supervisor</Label>
+                <Input
+                  id="cedula-supervisor"
+                  placeholder="87654321"
+                  {...registerAyudantia("cedula_supervisor")}
+                  className={errorsAyudantia.cedula_supervisor ? "border-red-500" : ""}
+                />
+                {errorsAyudantia.cedula_supervisor && (
+                  <p className="text-sm text-red-500">{errorsAyudantia.cedula_supervisor.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plaza">Plaza</Label>
+                <Controller
+                  name="plaza"
+                  control={controlAyudantia}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className={errorsAyudantia.plaza ? "border-red-500" : ""}>
+                        <SelectValue placeholder="Selecciona una plaza" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="placeholder">Plaza 1 (Placeholder)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errorsAyudantia.plaza && <p className="text-sm text-red-500">{errorsAyudantia.plaza.message}</p>}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowCreateAyudantiaModal(false)
+                  resetAyudantia()
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSubmittingAyudantia}>
+                {isSubmittingAyudantia ? "Creando..." : "Crear Ayudantía"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
