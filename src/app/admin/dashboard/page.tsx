@@ -14,12 +14,17 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import {
+  BookOpen,
   Users,
   Briefcase,
   TrendingUp,
   Award,
+  Settings,
+  LogOut,
+  Bell,
   Search,
   Plus,
+  Menu,
   ChevronLeft,
   UserPlus,
   GraduationCap,
@@ -72,24 +77,10 @@ const editSupervisorSchema = z.object({
     .refine((email) => email.endsWith("@correo.unimet.edu.ve"), "El correo debe terminar en @correo.unimet.edu.ve"),
 })
 
-const createAyudantiaSchema = z.object({
-  cedula_ayudante: z
-    .string()
-    .min(1, "La cédula del ayudante es requerida")
-    .regex(/^\d+$/, "La cédula debe contener solo números"),
-  tipo: z.string().min(1, "Debes seleccionar un tipo"),
-  cedula_supervisor: z
-    .string()
-    .min(1, "La cédula del supervisor es requerida")
-    .regex(/^\d+$/, "La cédula debe contener solo números"),
-  plaza: z.string().min(1, "Debes seleccionar una plaza"),
-})
-
 type CreateAssistantForm = z.infer<typeof createAssistantSchema>
 type EditAssistantForm = z.infer<typeof editAssistantSchema>
 type CreateSupervisorForm = z.infer<typeof createSupervisorSchema>
 type EditSupervisorForm = z.infer<typeof editSupervisorSchema>
-type CreateAyudantiaForm = z.infer<typeof createAyudantiaSchema>
 
 interface Facultad {
   nombre: string
@@ -161,9 +152,6 @@ export default function AdminDashboardPage() {
   const [editingPlaza, setEditingPlaza] = useState<Plaza | null>(null)
   const [nuevoNombrePlaza, setNuevoNombrePlaza] = useState("")
 
-  const [showAyudantiasView, setShowAyudantiasView] = useState(false)
-  const [showCreateAyudantiaModal, setShowCreateAyudantiaModal] = useState(false)
-
   const [searchTerm, setSearchTerm] = useState("")
 
   const {
@@ -211,16 +199,6 @@ export default function AdminDashboardPage() {
     reset: resetEditSupervisor,
   } = useForm<EditSupervisorForm>({
     resolver: zodResolver(editSupervisorSchema),
-  })
-
-  const {
-    register: registerAyudantia,
-    handleSubmit: handleSubmitAyudantia,
-    formState: { errors: errorsAyudantia, isSubmitting: isSubmittingAyudantia },
-    reset: resetAyudantia,
-    control: controlAyudantia,
-  } = useForm<CreateAyudantiaForm>({
-    resolver: zodResolver(createAyudantiaSchema),
   })
 
   useEffect(() => {
@@ -1024,13 +1002,6 @@ export default function AdminDashboardPage() {
     }
   }
 
-  const onSubmitAyudantia = async (data: CreateAyudantiaForm) => {
-    console.log("Crear ayudantía:", data)
-    // TODO: Connect to backend endpoint
-    setShowCreateAyudantiaModal(false)
-    resetAyudantia()
-  }
-
   const handleCreateUser = () => {
     setApiMessage(null)
     setApiError(null)
@@ -1228,15 +1199,6 @@ export default function AdminDashboardPage() {
     setDeletingSupervisor(null)
   }
 
-  // Adding handler for creating ayudantía
-  const handleShowAyudantiasView = () => {
-    setShowAyudantiasView(true)
-  }
-
-  const handleBackToSeguimiento = () => {
-    setShowAyudantiasView(false)
-  }
-
   const handleCloseModal = () => {
     setShowCreateModal(false)
     setShowAssistantForm(false)
@@ -1256,9 +1218,6 @@ export default function AdminDashboardPage() {
     resetEditAssistant()
     resetEditSupervisor()
     setSearchTerm("") // Clear search term when closing modal
-    setShowAyudantiasView(false) // Close ayudantías view
-    setShowCreateAyudantiaModal(false) // Close create ayudantía modal
-    resetAyudantia() // Reset create ayudantía form
   }
 
   const handleCloseErrorDialog = () => {
@@ -1278,483 +1237,480 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <aside
-        className={`${sidebarCollapsed ? "w-16" : "w-80"} border-r border-border bg-card/30 min-h-[calc(100vh-4rem)] transition-all duration-300`}
-      >
-        <div className="p-6">
-          <div className="space-y-2">
-            {[
-              {
-                id: "users",
-                title: "Gestión de Usuarios",
-                description: "Administrar estudiantes, supervisores y coordinadores",
-                icon: <Users className="h-4 w-4" />,
-                color: "bg-blue-500",
-                stats: "156 usuarios activos",
-              },
-              {
-                id: "plazas",
-                title: "Gestión de Plazas de Ayudantía",
-                description: "Crear y administrar plazas disponibles",
-                icon: <Briefcase className="h-4 w-4" />,
-                color: "bg-green-500",
-                stats: "24 plazas activas",
-              },
-              {
-                id: "seguimiento",
-                title: "Seguimiento de Ayudantías",
-                description: "Monitorear el progreso y actividades",
-                icon: <TrendingUp className="h-4 w-4" />,
-                color: "bg-purple-500",
-                stats: "18 ayudantías en curso",
-              },
-              {
-                id: "evaluacion",
-                title: "Evaluación y Beneficios",
-                description: "Gestionar evaluaciones y asignar beneficios",
-                icon: <Award className="h-4 w-4" />,
-                color: "bg-orange-500",
-                stats: "12 evaluaciones pendientes",
-              },
-            ].map((section) => (
-              <Button
-                key={section.id}
-                variant={activeSection === section.id ? "default" : "ghost"}
-                className={`w-full ${sidebarCollapsed ? "justify-center px-2" : "justify-start"} transition-all duration-300`}
-                onClick={() => setActiveSection(section.id)}
-                title={sidebarCollapsed ? section.title : undefined}
-              >
-                <span className={sidebarCollapsed ? "" : "mr-2"}>{section.icon}</span>
-                {!sidebarCollapsed && <span className="text-left">{section.title}</span>}
-              </Button>
-            ))}
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+        <div className="flex h-16 items-center px-6">
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="sm" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="mr-2">
+              {sidebarCollapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+              <BookOpen className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">AyudanTech</h1>
+              <p className="text-xs text-muted-foreground">Panel de Administración</p>
+            </div>
+          </div>
+
+          <div className="ml-auto flex items-center space-x-4">
+            <div className="text-sm text-muted-foreground">{adminEmail}</div>
+            <Button variant="ghost" size="sm">
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm">
+              <Bell className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm">
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar Sesión
+            </Button>
           </div>
         </div>
-      </aside>
+      </header>
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-foreground">
+      <div className="flex">
+        <aside
+          className={`${sidebarCollapsed ? "w-16" : "w-80"} border-r border-border bg-card/30 min-h-[calc(100vh-4rem)] transition-all duration-300`}
+        >
+          <div className="p-6">
+            <div className="space-y-2">
+              {[
                 {
-                  [
-                    { id: "users", title: "Gestión de Usuarios" },
-                    { id: "plazas", title: "Gestión de Plazas de Ayudantía" },
-                    { id: "seguimiento", title: "Seguimiento de Ayudantías" },
-                    { id: "evaluacion", title: "Evaluación y Beneficios" },
-                  ].find((s) => s.id === activeSection)?.title
-                }
-              </CardTitle>
-              <CardDescription>
-                {activeSection === "users"
-                  ? "Administra ayudantes y supervisores del sistema."
-                  : activeSection === "plazas"
-                    ? "Crea, edita y elimina las plazas de ayudantía disponibles."
-                    : activeSection === "seguimiento"
-                      ? "Monitorea el progreso y las actividades de las ayudantías."
+                  id: "users",
+                  title: "Gestión de Usuarios",
+                  description: "Administrar estudiantes, supervisores y coordinadores",
+                  icon: <Users className="h-4 w-4" />,
+                  color: "bg-blue-500",
+                  stats: "156 usuarios activos",
+                },
+                {
+                  id: "plazas",
+                  title: "Gestión de Plazas de Ayudantía",
+                  description: "Crear y administrar plazas disponibles",
+                  icon: <Briefcase className="h-4 w-4" />,
+                  color: "bg-green-500",
+                  stats: "24 plazas activas",
+                },
+                {
+                  id: "seguimiento",
+                  title: "Seguimiento de Ayudantías",
+                  description: "Monitorear el progreso y actividades",
+                  icon: <TrendingUp className="h-4 w-4" />,
+                  color: "bg-purple-500",
+                  stats: "18 ayudantías en curso",
+                },
+                {
+                  id: "evaluacion",
+                  title: "Evaluación y Beneficios",
+                  description: "Gestionar evaluaciones y asignar beneficios",
+                  icon: <Award className="h-4 w-4" />,
+                  color: "bg-orange-500",
+                  stats: "12 evaluaciones pendientes",
+                },
+              ].map((section) => (
+                <Button
+                  key={section.id}
+                  variant={activeSection === section.id ? "default" : "ghost"}
+                  className={`w-full ${sidebarCollapsed ? "justify-center px-2" : "justify-start"} transition-all duration-300`}
+                  onClick={() => setActiveSection(section.id)}
+                  title={sidebarCollapsed ? section.title : undefined}
+                >
+                  <span className={sidebarCollapsed ? "" : "mr-2"}>{section.icon}</span>
+                  {!sidebarCollapsed && <span className="text-left">{section.title}</span>}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <main className="flex-1 p-6">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-bold text-foreground">
+                  {
+                    [
+                      { id: "users", title: "Gestión de Usuarios" },
+                      { id: "plazas", title: "Gestión de Plazas de Ayudantía" },
+                      { id: "seguimiento", title: "Seguimiento de Ayudantías" },
+                      { id: "evaluacion", title: "Evaluación y Beneficios" },
+                    ].find((s) => s.id === activeSection)?.title
+                  }
+                </h2>
+                <CardDescription>
+                  {activeSection === "users"
+                    ? "Administra ayudantes y supervisores del sistema."
+                    : activeSection === "plazas"
+                      ? "Crea, edita y elimina las plazas de ayudantía disponibles."
                       : `Esta sección estará disponible próximamente.`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {activeSection === "users" ? (
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="relative flex-1 max-w-sm">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Buscar por cédula o nombre..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    {searchTerm && (
-                      <Button variant="outline" size="sm" onClick={() => setSearchTerm("")}>
-                        Limpiar
-                      </Button>
-                    )}
-                  </div>
+                </CardDescription>
+              </div>
 
-                  <Tabs defaultValue="ayudantes" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="ayudantes">
-                        Ayudantes ({filteredAyudantes.length}
-                        {searchTerm && ` de ${ayudantes.length}`})
-                      </TabsTrigger>
-                      <TabsTrigger value="supervisores">
-                        Supervisores ({filteredSupervisores.length}
-                        {searchTerm && ` de ${supervisores.length}`})
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="ayudantes" className="space-y-4">
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Cédula</TableHead>
-                              <TableHead>Nombre</TableHead>
-                              <TableHead>Correo</TableHead>
-                              <TableHead>Nivel</TableHead>
-                              <TableHead>Facultad</TableHead>
-                              <TableHead>Carrera</TableHead>
-                              <TableHead className="text-right">Acciones</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {loadingAyudantes ? (
-                              <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8">
-                                  <div className="flex items-center justify-center space-x-2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                                    <span>Cargando ayudantes...</span>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ) : filteredAyudantes.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                  {searchTerm
-                                    ? `No se encontraron ayudantes que coincidan con "${searchTerm}"`
-                                    : "No hay ayudantes registrados"}
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              filteredAyudantes.map((ayudante) => (
-                                <TableRow key={ayudante.cedula}>
-                                  <TableCell className="font-medium">{ayudante.cedula}</TableCell>
-                                  <TableCell>{ayudante.nombre}</TableCell>
-                                  <TableCell>{ayudante.correo}</TableCell>
-                                  <TableCell className="capitalize">{ayudante.nivel}</TableCell>
-                                  <TableCell>{ayudante.facultad}</TableCell>
-                                  <TableCell>{ayudante.carrera}</TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex items-center justify-end space-x-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
-                                        title="Editar ayudante"
-                                        onClick={() => handleEditAssistant(ayudante)}
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                                        title="Eliminar ayudante"
-                                        onClick={() => handleDeleteAssistant(ayudante)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="supervisores" className="space-y-4">
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Cédula</TableHead>
-                              <TableHead>Nombre</TableHead>
-                              <TableHead>Correo</TableHead>
-                              <TableHead className="text-right">Acciones</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {loadingSupervisores ? (
-                              <TableRow>
-                                <TableCell colSpan={4} className="text-center py-8">
-                                  <div className="flex items-center justify-center space-x-2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                                    <span>Cargando supervisores...</span>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ) : filteredSupervisores.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                  {searchTerm
-                                    ? `No se encontraron supervisores que coincidan con "${searchTerm}"`
-                                    : "No hay supervisores registrados"}
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              filteredSupervisores.map((supervisor) => (
-                                <TableRow key={supervisor.cedula}>
-                                  <TableCell className="font-medium">{supervisor.cedula}</TableCell>
-                                  <TableCell>{supervisor.nombre}</TableCell>
-                                  <TableCell>{supervisor.correo}</TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex items-center justify-end space-x-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
-                                        title="Editar supervisor"
-                                        onClick={() => handleEditSupervisor(supervisor)}
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                                        title="Eliminar supervisor"
-                                        onClick={() => handleDeleteSupervisor(supervisor)} // Added onClick handler for supervisor delete button
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              ) : activeSection === "plazas" ? (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-end"></div>
-                  <Card>
-                    <CardContent className="pt-6">
-                      {loadingPlazas ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2"></div>
-                          <span>Cargando plazas...</span>
-                        </div>
-                      ) : plazas.length === 0 ? (
-                        <div className="text-center text-muted-foreground py-8">No hay plazas registradas.</div>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Nombre</TableHead>
-                              <TableHead className="text-right">Acciones</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {plazas.map((plaza) => (
-                              <TableRow key={plaza.nombre}>
-                                <TableCell>{plaza.nombre}</TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    title="Editar plaza"
-                                    onClick={() => {
-                                      setEditingPlaza(plaza)
-                                      setNuevoNombrePlaza(plaza.nombre)
-                                      setShowPlazaModal(true)
-                                    }}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    title="Eliminar plaza"
-                                    onClick={() => handleDeletePlaza(plaza.nombre)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Modal para crear/editar plaza */}
-                  <Dialog
-                    open={showPlazaModal}
-                    onOpenChange={(open) => {
-                      setShowPlazaModal(open)
-                      if (!open) {
-                        setEditingPlaza(null)
-                        setPlazaNombre("")
-                        setNuevoNombrePlaza("")
-                      }
+              <div>
+                {activeSection === "users" && (
+                  <Button className="bg-primary hover:bg-primary/90" onClick={handleCreateUser}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Agregar Nuevo
+                  </Button>
+                )}
+                {activeSection === "plazas" && (
+                  <Button
+                    onClick={() => {
+                      setShowPlazaModal(true)
+                      setEditingPlaza(null)
+                      setPlazaNombre("")
                     }}
                   >
-                    <DialogContent>
-                      <DialogTitle>{editingPlaza ? "Editar Plaza" : "Nueva Plaza"}</DialogTitle>
-                      <div className="space-y-4">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nueva Plaza
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <Card className="border-border/50">
+              <CardHeader>
+                <CardTitle className="text-foreground">
+                  {
+                    [
+                      { id: "users", title: "Lista de Usuarios" },
+                      { id: "plazas", title: "Lista de Plazas" },
+                      { id: "seguimiento", title: "Seguimiento" },
+                      { id: "evaluacion", title: "Evaluación" },
+                    ].find((s) => s.id === activeSection)?.title
+                  }
+                </CardTitle>
+                <CardDescription>
+                  {activeSection === "users"
+                    ? "Visualiza, edita o elimina los ayudantes y supervisores registrados."
+                    : activeSection === "plazas"
+                      ? "Administra las plazas disponibles para las ayudantías."
+                      : `Esta funcionalidad estará disponible próximamente.`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {activeSection === "users" ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="relative flex-1 max-w-sm">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                          placeholder="Nombre de la plaza"
-                          value={editingPlaza ? nuevoNombrePlaza : plazaNombre}
-                          onChange={(e) =>
-                            editingPlaza ? setNuevoNombrePlaza(e.target.value) : setPlazaNombre(e.target.value)
-                          }
+                          placeholder="Buscar por cédula o nombre..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10"
                         />
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setShowPlazaModal(false)
-                              setEditingPlaza(null)
-                              setPlazaNombre("")
-                              setNuevoNombrePlaza("")
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            onClick={editingPlaza ? handleEditPlaza : handleCreatePlaza}
-                            disabled={!(editingPlaza ? nuevoNombrePlaza : plazaNombre)}
-                          >
-                            {editingPlaza ? "Guardar Cambios" : "Crear"}
-                          </Button>
-                        </div>
                       </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              ) : activeSection === "seguimiento" ? (
-                showAyudantiasView ? (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <Button variant="outline" size="sm" onClick={handleBackToSeguimiento}>
-                          <ChevronLeft className="h-4 w-4 mr-2" />
-                          Volver
+                      {searchTerm && (
+                        <Button variant="outline" size="sm" onClick={() => setSearchTerm("")}>
+                          Limpiar
                         </Button>
-                        <h3 className="text-2xl font-semibold">Gestión de Ayudantías</h3>
-                      </div>
-                      <Button onClick={() => setShowCreateAyudantiaModal(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Crear Ayudantía
-                      </Button>
+                      )}
                     </div>
 
+                    <Tabs defaultValue="ayudantes" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="ayudantes">
+                          Ayudantes ({filteredAyudantes.length}
+                          {searchTerm && ` de ${ayudantes.length}`})
+                        </TabsTrigger>
+                        <TabsTrigger value="supervisores">
+                          Supervisores ({filteredSupervisores.length}
+                          {searchTerm && ` de ${supervisores.length}`})
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="ayudantes" className="space-y-4">
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Cédula</TableHead>
+                                <TableHead>Nombre</TableHead>
+                                <TableHead>Correo</TableHead>
+                                <TableHead>Nivel</TableHead>
+                                <TableHead>Facultad</TableHead>
+                                <TableHead>Carrera</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {loadingAyudantes ? (
+                                <TableRow>
+                                  <TableCell colSpan={7} className="text-center py-8">
+                                    <div className="flex items-center justify-center space-x-2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                                      <span>Cargando ayudantes...</span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ) : filteredAyudantes.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                    {searchTerm
+                                      ? `No se encontraron ayudantes que coincidan con "${searchTerm}"`
+                                      : "No hay ayudantes registrados"}
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                filteredAyudantes.map((ayudante) => (
+                                  <TableRow key={ayudante.cedula}>
+                                    <TableCell className="font-medium">{ayudante.cedula}</TableCell>
+                                    <TableCell>{ayudante.nombre}</TableCell>
+                                    <TableCell>{ayudante.correo}</TableCell>
+                                    <TableCell className="capitalize">{ayudante.nivel}</TableCell>
+                                    <TableCell>{ayudante.facultad}</TableCell>
+                                    <TableCell>{ayudante.carrera}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex items-center justify-end space-x-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                                          title="Editar ayudante"
+                                          onClick={() => handleEditAssistant(ayudante)}
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                          title="Eliminar ayudante"
+                                          onClick={() => handleDeleteAssistant(ayudante)}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="supervisores" className="space-y-4">
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Cédula</TableHead>
+                                <TableHead>Nombre</TableHead>
+                                <TableHead>Correo</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {loadingSupervisores ? (
+                                <TableRow>
+                                  <TableCell colSpan={4} className="text-center py-8">
+                                    <div className="flex items-center justify-center space-x-2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                                      <span>Cargando supervisores...</span>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ) : filteredSupervisores.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                    {searchTerm
+                                      ? `No se encontraron supervisores que coincidan con "${searchTerm}"`
+                                      : "No hay supervisores registrados"}
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                filteredSupervisores.map((supervisor) => (
+                                  <TableRow key={supervisor.cedula}>
+                                    <TableCell className="font-medium">{supervisor.cedula}</TableCell>
+                                    <TableCell>{supervisor.nombre}</TableCell>
+                                    <TableCell>{supervisor.correo}</TableCell>
+                                    <TableCell className="text-right">
+                                      <div className="flex items-center justify-end space-x-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                                          title="Editar supervisor"
+                                          onClick={() => handleEditSupervisor(supervisor)}
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                          title="Eliminar supervisor"
+                                          onClick={() => handleDeleteSupervisor(supervisor)} // Added onClick handler for supervisor delete button
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                ) : activeSection === "plazas" ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-end"></div>
                     <Card>
-                      <CardContent className="p-6">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Cédula Ayudante</TableHead>
-                              <TableHead>Nombre Ayudante</TableHead>
-                              <TableHead>Tipo</TableHead>
-                              <TableHead>Supervisor</TableHead>
-                              <TableHead>Plaza</TableHead>
-                              <TableHead>Acciones</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            <TableRow>
-                              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                No hay ayudantías registradas. Crea una nueva ayudantía para comenzar.
-                              </TableCell>
-                            </TableRow>
-                          </TableBody>
-                        </Table>
+                      <CardContent className="pt-6">
+                        {loadingPlazas ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2"></div>
+                            <span>Cargando plazas...</span>
+                          </div>
+                        ) : plazas.length === 0 ? (
+                          <div className="text-center text-muted-foreground py-8">No hay plazas registradas.</div>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Nombre</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {plazas.map((plaza) => (
+                                <TableRow key={plaza.nombre}>
+                                  <TableCell>{plaza.nombre}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      title="Editar plaza"
+                                      onClick={() => {
+                                        setEditingPlaza(plaza)
+                                        setNuevoNombrePlaza(plaza.nombre)
+                                        setShowPlazaModal(true)
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      title="Eliminar plaza"
+                                      onClick={() => handleDeletePlaza(plaza.nombre)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        )}
                       </CardContent>
                     </Card>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-8">
-                    <button
-                      className="group relative overflow-hidden rounded-lg border-2 border-border bg-card p-8 transition-all hover:border-primary hover:shadow-lg"
-                      onClick={handleShowAyudantiasView}
-                    >
-                      <div className="flex flex-col items-center text-center space-y-4">
-                        <div className="rounded-full bg-primary/10 p-4 transition-colors group-hover:bg-primary/20">
-                          <Briefcase className="h-8 w-8 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-semibold text-foreground mb-2">Ver y Crear Ayudantías</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Gestiona las ayudantías activas y crea nuevas asignaciones
-                          </p>
-                        </div>
-                      </div>
-                    </button>
 
-                    <button
-                      className="group relative overflow-hidden rounded-lg border-2 border-border bg-card p-8 transition-all hover:border-primary hover:shadow-lg"
-                      onClick={() => {
-                        // Functionality to be implemented
+                    {/* Modal para crear/editar plaza */}
+                    <Dialog
+                      open={showPlazaModal}
+                      onOpenChange={(open) => {
+                        setShowPlazaModal(open)
+                        if (!open) {
+                          setEditingPlaza(null)
+                          setPlazaNombre("")
+                          setNuevoNombrePlaza("")
+                        }
                       }}
                     >
-                      <div className="flex flex-col items-center text-center space-y-4">
-                        <div className="rounded-full bg-primary/10 p-4 transition-colors group-hover:bg-primary/20">
-                          <TrendingUp className="h-8 w-8 text-primary" />
+                      <DialogContent>
+                        <DialogTitle>{editingPlaza ? "Editar Plaza" : "Nueva Plaza"}</DialogTitle>
+                        <div className="space-y-4">
+                          <Input
+                            placeholder="Nombre de la plaza"
+                            value={editingPlaza ? nuevoNombrePlaza : plazaNombre}
+                            onChange={(e) =>
+                              editingPlaza ? setNuevoNombrePlaza(e.target.value) : setPlazaNombre(e.target.value)
+                            }
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setShowPlazaModal(false)
+                                setEditingPlaza(null)
+                                setPlazaNombre("")
+                                setNuevoNombrePlaza("")
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              onClick={editingPlaza ? handleEditPlaza : handleCreatePlaza}
+                              disabled={!(editingPlaza ? nuevoNombrePlaza : plazaNombre)}
+                            >
+                              {editingPlaza ? "Guardar Cambios" : "Crear"}
+                            </Button>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-xl font-semibold text-foreground mb-2">Ver Actividades</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Monitorea el progreso y las actividades realizadas
-                          </p>
-                        </div>
-                      </div>
-                    </button>
+                      </DialogContent>
+                    </Dialog>
                   </div>
-                )
-              ) : (
-                <div className="text-center py-12">
-                  <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                    {
-                      [
-                        {
-                          id: "users",
-                          title: "Gestión de Usuarios",
-                          description: "Administrar estudiantes, supervisores y coordinadores",
-                          icon: <Users className="h-4 w-4" />,
-                          color: "bg-blue-500",
-                          stats: "156 usuarios activos",
-                        },
-                        {
-                          id: "plazas",
-                          title: "Gestión de Plazas de Ayudantía",
-                          description: "Crear y administrar plazas disponibles",
-                          icon: <Briefcase className="h-4 w-4" />,
-                          color: "bg-green-500",
-                          stats: "24 plazas activas",
-                        },
-                        {
-                          id: "seguimiento",
-                          title: "Seguimiento de Ayudantías",
-                          description: "Monitorear el progreso y actividades",
-                          icon: <TrendingUp className="h-4 w-4" />,
-                          color: "bg-purple-500",
-                          stats: "18 ayudantías en curso",
-                        },
-                        {
-                          id: "evaluacion",
-                          title: "Evaluación y Beneficios",
-                          description: "Gestionar evaluaciones y asignar beneficios",
-                          icon: <Award className="h-4 w-4" />,
-                          color: "bg-orange-500",
-                          stats: "12 evaluaciones pendientes",
-                        },
-                      ].find((s) => s.id === activeSection)?.icon
-                    }
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                      {
+                        [
+                          {
+                            id: "users",
+                            title: "Gestión de Usuarios",
+                            description: "Administrar estudiantes, supervisores y coordinadores",
+                            icon: <Users className="h-4 w-4" />,
+                            color: "bg-blue-500",
+                            stats: "156 usuarios activos",
+                          },
+                          {
+                            id: "plazas",
+                            title: "Gestión de Plazas de Ayudantía",
+                            description: "Crear y administrar plazas disponibles",
+                            icon: <Briefcase className="h-4 w-4" />,
+                            color: "bg-green-500",
+                            stats: "24 plazas activas",
+                          },
+                          {
+                            id: "seguimiento",
+                            title: "Seguimiento de Ayudantías",
+                            description: "Monitorear el progreso y actividades",
+                            icon: <TrendingUp className="h-4 w-4" />,
+                            color: "bg-purple-500",
+                            stats: "18 ayudantías en curso",
+                          },
+                          {
+                            id: "evaluacion",
+                            title: "Evaluación y Beneficios",
+                            description: "Gestionar evaluaciones y asignar beneficios",
+                            icon: <Award className="h-4 w-4" />,
+                            color: "bg-orange-500",
+                            stats: "12 evaluaciones pendientes",
+                          },
+                        ].find((s) => s.id === activeSection)?.icon
+                      }
+                    </div>
+                    <h3 className="text-lg font-medium text-foreground mb-2">Próximamente</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Esta funcionalidad se desarrollará en las próximas iteraciones.
+                    </p>
                   </div>
-                  <h3 className="text-lg font-medium text-foreground mb-2">Próximamente</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Esta funcionalidad se desarrollará en las próximas iteraciones.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
 
       <Dialog open={showErrorDialog} onOpenChange={handleCloseErrorDialog}>
         <DialogContent className="sm:max-w-md">
@@ -2362,107 +2318,6 @@ export default function AdminDashboardPage() {
               {isDeletingSupervisor ? "Eliminando..." : "Eliminar"}
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showCreateAyudantiaModal} onOpenChange={() => {}}>
-        <DialogContent
-          className="sm:max-w-md"
-          showCloseButton={false}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
-          <DialogTitle className="text-lg font-semibold">Crear Ayudantía</DialogTitle>
-
-          <div className="space-y-2 pb-4">
-            <p className="text-sm text-muted-foreground">Completa los datos para crear una nueva ayudantía</p>
-          </div>
-
-          <form onSubmit={handleSubmitAyudantia(onSubmitAyudantia)} className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cedula-ayudante">Cédula Ayudante</Label>
-                <Input
-                  id="cedula-ayudante"
-                  placeholder="12345678"
-                  {...registerAyudantia("cedula_ayudante")}
-                  className={errorsAyudantia.cedula_ayudante ? "border-red-500" : ""}
-                />
-                {errorsAyudantia.cedula_ayudante && (
-                  <p className="text-sm text-red-500">{errorsAyudantia.cedula_ayudante.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tipo">Tipo</Label>
-                <Controller
-                  name="tipo"
-                  control={controlAyudantia}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className={errorsAyudantia.tipo ? "border-red-500" : ""}>
-                        <SelectValue placeholder="Selecciona un tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="placeholder">Tipo 1 (Placeholder)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errorsAyudantia.tipo && <p className="text-sm text-red-500">{errorsAyudantia.tipo.message}</p>}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cedula-supervisor">Cédula Supervisor</Label>
-                <Input
-                  id="cedula-supervisor"
-                  placeholder="87654321"
-                  {...registerAyudantia("cedula_supervisor")}
-                  className={errorsAyudantia.cedula_supervisor ? "border-red-500" : ""}
-                />
-                {errorsAyudantia.cedula_supervisor && (
-                  <p className="text-sm text-red-500">{errorsAyudantia.cedula_supervisor.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="plaza">Plaza</Label>
-                <Controller
-                  name="plaza"
-                  control={controlAyudantia}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className={errorsAyudantia.plaza ? "border-red-500" : ""}>
-                        <SelectValue placeholder="Selecciona una plaza" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="placeholder">Plaza 1 (Placeholder)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errorsAyudantia.plaza && <p className="text-sm text-red-500">{errorsAyudantia.plaza.message}</p>}
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowCreateAyudantiaModal(false)
-                  resetAyudantia()
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSubmittingAyudantia}>
-                {isSubmittingAyudantia ? "Creando..." : "Crear Ayudantía"}
-              </Button>
-            </div>
-          </form>
         </DialogContent>
       </Dialog>
     </div>
