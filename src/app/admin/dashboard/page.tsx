@@ -1938,6 +1938,19 @@ export default function AdminDashboard() {
                                 </Button>
                                 <h2 className="text-2xl font-bold">Gestión de Ayudantías</h2>
                               </div>
+
+                              <div className="mb-4">
+                                <div className="relative">
+                                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                  <Input
+                                    placeholder="Buscar por cédula de ayudante o supervisor..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10"
+                                  />
+                                </div>
+                              </div>
+
                               <Button onClick={handleCreateAyudantia}>
                                 <Plus className="h-4 w-4 mr-2" />
                                 Crear Ayudantía
@@ -1958,38 +1971,54 @@ export default function AdminDashboard() {
                                         <TableHead>Cédula Ayudante</TableHead>
                                         <TableHead>Cédula Supervisor</TableHead>
                                         <TableHead>Plaza</TableHead>
-                                        <TableHead>Descripción Objetivo</TableHead>
                                         <TableHead>Tipo Ayudante</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                       </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                      {ayudantias.length === 0 ? (
+                                      {ayudantias.filter((ayudantia) => {
+                                        if (!searchTerm) return true
+                                        const search = searchTerm.toLowerCase()
+                                        return (
+                                          ayudantia.cedula_ayudante.toString().includes(search) ||
+                                          ayudantia.cedula_supervisor.toString().includes(search)
+                                        )
+                                      }).length === 0 ? (
                                         <TableRow>
-                                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                                            No hay ayudantías registradas. Crea una nueva ayudantía para comenzar.
+                                          <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                                            {searchTerm
+                                              ? "No se encontraron ayudantías que coincidan con la búsqueda."
+                                              : "No hay ayudantías registradas. Crea una nueva ayudantía para comenzar."}
                                           </TableCell>
                                         </TableRow>
                                       ) : (
-                                        ayudantias.map((ayudantia) => (
-                                          <TableRow key={ayudantia.id}>
-                                            <TableCell>{ayudantia.id}</TableCell>
-                                            <TableCell>{ayudantia.cedula_ayudante}</TableCell>
-                                            <TableCell>{ayudantia.cedula_supervisor}</TableCell>
-                                            <TableCell>{ayudantia.plaza}</TableCell>
-                                            <TableCell>{ayudantia.desc_objetivo}</TableCell>
-                                            <TableCell>{ayudantia.tipo_ayudante}</TableCell>
-                                            <TableCell className="text-right">
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleDeleteAyudantia(ayudantia)}
-                                              >
-                                                <Trash2 className="h-4 w-4" />
-                                              </Button>
-                                            </TableCell>
-                                          </TableRow>
-                                        ))
+                                        ayudantias
+                                          .filter((ayudantia) => {
+                                            if (!searchTerm) return true
+                                            const search = searchTerm.toLowerCase()
+                                            return (
+                                              ayudantia.cedula_ayudante.toString().includes(search) ||
+                                              ayudantia.cedula_supervisor.toString().includes(search)
+                                            )
+                                          })
+                                          .map((ayudantia) => (
+                                            <TableRow key={ayudantia.id}>
+                                              <TableCell>{ayudantia.id}</TableCell>
+                                              <TableCell>{ayudantia.cedula_ayudante}</TableCell>
+                                              <TableCell>{ayudantia.cedula_supervisor}</TableCell>
+                                              <TableCell>{ayudantia.plaza}</TableCell>
+                                              <TableCell>{ayudantia.tipo_ayudante}</TableCell>
+                                              <TableCell className="text-right">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => handleDeleteAyudantia(ayudantia)}
+                                                >
+                                                  <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                              </TableCell>
+                                            </TableRow>
+                                          ))
                                       )}
                                     </TableBody>
                                   </Table>
