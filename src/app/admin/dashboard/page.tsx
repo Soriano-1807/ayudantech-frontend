@@ -6,7 +6,14 @@ import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -33,6 +40,10 @@ import {
   AlertTriangle,
   Edit,
   Trash2,
+  CheckCircle2,
+  Building2,
+  Activity,
+  ClipboardList,
 } from "lucide-react"
 
 const createAssistantSchema = z.object({
@@ -145,6 +156,7 @@ export default function AdminDashboard() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [errorDialogMessage, setErrorDialogMessage] = useState("")
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [adminEmail, setAdminEmail] = useState("")
   const [facultades, setFacultades] = useState<Facultad[]>([])
@@ -175,6 +187,8 @@ export default function AdminDashboard() {
   const [tipoAyudantia, setTipoAyudantia] = useState("")
   const [cedulaSupervisor, setCedulaSupervisor] = useState("")
   const [plazaAyudantia, setPlazaAyudantia] = useState("")
+  const [deletingAyudantia, setDeletingAyudantia] = useState<Ayudantia | null>(null)
+  const [showDeleteAyudantiaModal, setShowDeleteAyudantiaModal] = useState(false)
 
   const {
     register,
@@ -512,6 +526,25 @@ export default function AdminDashboard() {
     }
   }
 
+  const fetchAyudantias = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      if (!apiUrl) {
+        console.error("API URL not configured")
+        return
+      }
+      const response = await fetch(`${apiUrl}/ayudantias`)
+      if (!response.ok) {
+        throw new Error(`Error fetching ayudantias: ${response.status}`)
+      }
+      const data = await response.json()
+      setAyudantias(data)
+    } catch (error) {
+      console.error("Error fetching ayudantias:", error)
+      setAyudantias([])
+    }
+  }
+
   const fetchSupervisores = async () => {
     try {
       setLoadingSupervisores(true)
@@ -724,6 +757,8 @@ export default function AdminDashboard() {
 
       // Refresh assistants list
       fetchAyudantes() // Changed from fetchAssistants to fetchAyudantes
+
+      setShowSuccessModal(true)
     } catch (error: any) {
       console.error("[v0] Error en onSubmitAssistant:", error)
       setApiError(error.message || "Error desconocido al crear el ayudante")
@@ -1151,10 +1186,11 @@ export default function AdminDashboard() {
       setDeletingAssistant(null)
       fetchAyudantes() // Refresh the list
 
+      setShowSuccessModal(true)
       // Clear success message after 3 seconds
-      setTimeout(() => {
-        setApiMessage(null)
-      }, 3000)
+      // setTimeout(() => {
+      //   setApiMessage(null)
+      // }, 3000)
     } catch (error) {
       console.error("❌ ERROR:", error)
       setApiError(error instanceof Error ? error.message : "Error desconocido")
@@ -1228,10 +1264,11 @@ export default function AdminDashboard() {
       setDeletingSupervisor(null)
       fetchSupervisores() // Refresh the list
 
+      setShowSuccessModal(true)
       // Clear success message after 3 seconds
-      setTimeout(() => {
-        setApiMessage(null)
-      }, 3000)
+      // setTimeout(() => {
+      //   setApiMessage(null)
+      // }, 3000)
     } catch (error) {
       console.error("❌ ERROR:", error)
       setApiError(error instanceof Error ? error.message : "Error desconocido")
@@ -1272,27 +1309,14 @@ export default function AdminDashboard() {
     setErrorDialogMessage("")
   }
 
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false)
+    setApiMessage(null)
+  }
+
   const handleVerCrearAyudantias = () => {
     // Fetch ayudantias when switching to the view
-    const fetchAyudantias = async () => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL
-        if (!apiUrl) {
-          console.error("API URL not configured")
-          return
-        }
-        const response = await fetch(`${apiUrl}/ayudantias`)
-        if (!response.ok) {
-          throw new Error(`Error fetching ayudantias: ${response.status}`)
-        }
-        const data = await response.json()
-        setAyudantias(data)
-      } catch (error) {
-        console.error("Error fetching ayudantias:", error)
-        setAyudantias([])
-      }
-    }
-    fetchAyudantias()
+    fetchAyudantias() // Call the newly added fetchAyudantias function
     setShowAyudantiasView(true)
   }
 
@@ -1382,32 +1406,73 @@ export default function AdminDashboard() {
       const result = await response.json()
       console.log("[v0] Success result:", result)
       setApiMessage("Ayudantía creada exitosamente.")
+      setShowSuccessModal(true)
       handleCloseAyudantiaModal()
-
-      // Refresh the list of ayudantias
-      const fetchAyudantias = async () => {
-        try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL
-          if (!apiUrl) {
-            console.error("API URL not configured")
-            return
-          }
-          const response = await fetch(`${apiUrl}/ayudantias`)
-          if (!response.ok) {
-            throw new Error(`Error fetching ayudantias: ${response.status}`)
-          }
-          const data = await response.json()
-          setAyudantias(data)
-        } catch (error) {
-          console.error("Error fetching ayudantias:", error)
-          setAyudantias([])
-        }
-      }
-      fetchAyudantias()
+      fetchAyudantias() // Refresh the list of ayudantias after creation
     } catch (error: any) {
       console.error("[v0] Error creating ayudantia:", error)
       setApiError("Error al conectar con el servidor. Por favor, intenta de nuevo.")
     }
+  }
+
+  const handleDeleteAyudantia = (ayudantia: Ayudantia) => {
+    setDeletingAyudantia(ayudantia)
+    setShowDeleteAyudantiaModal(true)
+  }
+
+  const confirmDeleteAyudantia = async () => {
+    if (!deletingAyudantia) return
+
+    try {
+      setIsDeleting(true)
+      setApiError(null)
+      setApiMessage(null)
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+      if (!apiUrl) {
+        throw new Error("URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local")
+      }
+
+      const fullUrl = `${apiUrl}/ayudantias/${deletingAyudantia.id}`
+
+      const response = await fetch(fullUrl, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+
+        if (response.status === 404) {
+          setApiError("La ayudantía no fue encontrada en el sistema.")
+          return
+        }
+
+        throw new Error(errorData.error || `Error del servidor: ${response.status}`)
+      }
+
+      const result = await response.json()
+      setApiMessage(result.status?.replace("✅", "").trim() || "Ayudantía eliminada correctamente")
+
+      setShowSuccessModal(true)
+      setShowDeleteAyudantiaModal(false)
+      setDeletingAyudantia(null)
+      fetchAyudantias()
+    } catch (error) {
+      console.error("Error:", error)
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido"
+      setApiError(errorMessage.replace("❌", "").trim())
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const cancelDeleteAyudantia = () => {
+    setShowDeleteAyudantiaModal(false)
+    setDeletingAyudantia(null)
   }
 
   if (!isAuthenticated) {
@@ -1476,7 +1541,7 @@ export default function AdminDashboard() {
                   id: "plazas",
                   title: "Gestión de Plazas de Ayudantía",
                   description: "Crear y administrar plazas disponibles",
-                  icon: <Briefcase className="h-4 w-4" />,
+                  icon: <Building2 className="h-4 w-4" />,
                   color: "bg-green-500",
                   stats: "24 plazas activas",
                 },
@@ -1484,7 +1549,7 @@ export default function AdminDashboard() {
                   id: "seguimiento",
                   title: "Seguimiento de Ayudantías",
                   description: "Monitorear el progreso y actividades",
-                  icon: <TrendingUp className="h-4 w-4" />,
+                  icon: <Activity className="h-4 w-4" />,
                   color: "bg-purple-500",
                   stats: "18 ayudantías en curso",
                 },
@@ -1556,6 +1621,12 @@ export default function AdminDashboard() {
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Nueva Plaza
+                  </Button>
+                )}
+                {activeSection === "seguimiento" && !showAyudantiasView && (
+                  <Button onClick={handleVerCrearAyudantias}>
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    Ver Ayudantías
                   </Button>
                 )}
               </div>
@@ -1909,10 +1980,11 @@ export default function AdminDashboard() {
                                             <TableCell>{ayudantia.desc_objetivo}</TableCell>
                                             <TableCell>{ayudantia.tipo_ayudante}</TableCell>
                                             <TableCell className="text-right">
-                                              <Button variant="ghost" size="sm">
-                                                <Edit className="h-4 w-4" />
-                                              </Button>
-                                              <Button variant="ghost" size="sm">
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleDeleteAyudantia(ayudantia)}
+                                              >
                                                 <Trash2 className="h-4 w-4" />
                                               </Button>
                                             </TableCell>
@@ -1973,7 +2045,7 @@ export default function AdminDashboard() {
                                   id: "plazas",
                                   title: "Gestión de Plazas de Ayudantía",
                                   description: "Crear y administrar plazas disponibles",
-                                  icon: <Briefcase className="h-4 w-4" />,
+                                  icon: <Building2 className="h-4 w-4" />,
                                   color: "bg-green-500",
                                   stats: "24 plazas activas",
                                 },
@@ -1981,7 +2053,7 @@ export default function AdminDashboard() {
                                   id: "seguimiento",
                                   title: "Seguimiento de Ayudantías",
                                   description: "Monitorear el progreso y actividades",
-                                  icon: <TrendingUp className="h-4 w-4" />,
+                                  icon: <Activity className="h-4 w-4" />,
                                   color: "bg-purple-500",
                                   stats: "18 ayudantías en curso",
                                 },
@@ -2182,7 +2254,7 @@ export default function AdminDashboard() {
                   name="nivel"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue="pregrado">
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <SelectTrigger className={errors.nivel ? "border-red-500" : ""}>
                         <SelectValue />
                       </SelectTrigger>
@@ -2707,6 +2779,263 @@ export default function AdminDashboard() {
               <Button type="submit">Crear Ayudantía</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showDeleteAyudantiaModal && deletingAyudantia !== null}
+        onOpenChange={(open) => {
+          if (!open) cancelDeleteAyudantia()
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Eliminación</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas eliminar la ayudantía con ID {deletingAyudantia?.id}? Esta acción no se puede
+              deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelDeleteAyudantia} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteAyudantia} disabled={isDeleting}>
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSuccessModal} onOpenChange={handleCloseSuccessModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle className="flex items-center space-x-2 text-green-600">
+            <CheckCircle2 className="h-5 w-5" />
+            <span>Operación Exitosa</span>
+          </DialogTitle>
+
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">{apiMessage}</p>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleCloseSuccessModal}>Aceptar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteConfirmModal} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="flex items-center space-x-2 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            <span>Confirmar Eliminación</span>
+          </DialogTitle>
+
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              ¿Estás seguro de que deseas eliminar al ayudante{" "}
+              <span className="font-semibold text-foreground">{deletingAssistant?.nombre}</span> con cédula{" "}
+              <span className="font-semibold text-foreground">{deletingAssistant?.cedula}</span>?
+            </p>
+            <p className="text-sm text-red-600 font-medium">Esta acción no se puede deshacer.</p>
+
+            {apiError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">❌ {apiError}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={cancelDeleteAssistant} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmDeleteAssistant} disabled={isDeleting}>
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteSupervisorConfirmModal} onOpenChange={() => {}}>
+        {" "}
+        {/* Added supervisor delete confirmation modal */}
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="flex items-center space-x-2 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            <span>Confirmar Eliminación</span>
+          </DialogTitle>
+
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              ¿Estás seguro de que deseas eliminar al supervisor{" "}
+              <span className="font-semibold text-foreground">{deletingSupervisor?.nombre}</span> con cédula{" "}
+              <span className="font-semibold text-foreground">{deletingSupervisor?.cedula}</span>?
+            </p>
+            <p className="text-sm text-red-600 font-medium">Esta acción no se puede deshacer.</p>
+
+            {apiError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-800">❌ {apiError}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={cancelDeleteSupervisor} disabled={isDeletingSupervisor}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDeleteSupervisor}
+              disabled={isDeletingSupervisor}
+            >
+              {isDeletingSupervisor ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showCreateAyudantiaModal} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogTitle className="text-lg font-semibold">Crear Ayudantía</DialogTitle>
+
+          <div className="space-y-2 pb-4">
+            <p className="text-sm text-muted-foreground">Completa los datos para crear una nueva ayudantía</p>
+          </div>
+
+          {apiError && (
+            <div className="rounded-md bg-red-50 p-4 mb-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">{apiError}</h3>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmitAyudantia} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="cedula-ayudante">Cédula Ayudante</Label>
+              <Input
+                id="cedula-ayudante"
+                type="text"
+                placeholder="12345678"
+                value={cedulaAyudante}
+                onChange={(e) => setCedulaAyudante(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tipo">Tipo</Label>
+              <Select value={tipoAyudantia} onValueChange={setTipoAyudantia}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tipos.map((tipo) => (
+                    <SelectItem key={tipo.tipo} value={tipo.tipo}>
+                      {tipo.tipo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cedula-supervisor">Cédula Supervisor</Label>
+              <Input
+                id="cedula-supervisor"
+                type="text"
+                placeholder="87654321"
+                value={cedulaSupervisor}
+                onChange={(e) => setCedulaSupervisor(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="plaza">Plaza</Label>
+              <Select value={plazaAyudantia} onValueChange={setPlazaAyudantia}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una plaza" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plazas.map((plaza) => (
+                    <SelectItem key={plaza.nombre} value={plaza.nombre}>
+                      {plaza.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseAyudantiaModal}>
+                Cancelar
+              </Button>
+              <Button type="submit">Crear Ayudantía</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showDeleteAyudantiaModal && deletingAyudantia !== null}
+        onOpenChange={(open) => {
+          if (!open) cancelDeleteAyudantia()
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Eliminación</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas eliminar la ayudantía con ID {deletingAyudantia?.id}? Esta acción no se puede
+              deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelDeleteAyudantia} disabled={isDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteAyudantia} disabled={isDeleting}>
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSuccessModal} onOpenChange={handleCloseSuccessModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle className="flex items-center space-x-2 text-green-600">
+            <CheckCircle2 className="h-5 w-5" />
+            <span>Operación Exitosa</span>
+          </DialogTitle>
+
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">{apiMessage}</p>
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleCloseSuccessModal}>Aceptar</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
