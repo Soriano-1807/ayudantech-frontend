@@ -175,6 +175,10 @@ export default function AdminDashboard() {
   const [plazaNombre, setPlazaNombre] = useState("")
   const [editingPlaza, setEditingPlaza] = useState<Plaza | null>(null)
   const [nuevoNombrePlaza, setNuevoNombrePlaza] = useState("")
+  const [plazaMensaje, setPlazaMensaje] = useState<string | null>(null)
+  const [plazaPageMensaje, setPlazaPageMensaje] = useState<string | null>(null)
+  const [showDeletePlazaConfirmModal, setShowDeletePlazaConfirmModal] = useState(false)
+  const [deletingPlaza, setDeletingPlaza] = useState<Plaza | null>(null)
 
   const [tipos, setTipos] = useState<any[]>([])
 
@@ -430,6 +434,7 @@ export default function AdminDashboard() {
   }
 
   const handleCreatePlaza = async () => {
+    if (!plazaNombre) return
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL
       const res = await fetch(`${apiUrl}/plazas`, {
@@ -441,8 +446,27 @@ export default function AdminDashboard() {
         setPlazaNombre("")
         setShowPlazaModal(false)
         fetchPlazas()
+        setPlazaPageMensaje("✅ Plaza creada exitosamente")
+        setTimeout(() => setPlazaPageMensaje(null), 3000)
+      } else {
+        const errorData = await res.json()
+        if (
+          errorData.error &&
+          (errorData.error.toLowerCase().includes("duplicate") ||
+            errorData.error.toLowerCase().includes("ya existe") ||
+            errorData.error.toLowerCase().includes("duplicado"))
+        ) {
+          setPlazaMensaje("❌ Ya existe una plaza con ese nombre.")
+          setTimeout(() => setPlazaMensaje(null), 3000)
+        } else {
+          setPlazaPageMensaje("❌ Error al crear la plaza.")
+          setTimeout(() => setPlazaPageMensaje(null), 3000)
+        }
       }
-    } catch {}
+    } catch {
+      setPlazaPageMensaje("❌ Error de conexión al crear la plaza.")
+      setTimeout(() => setPlazaPageMensaje(null), 3000)
+    }
   }
 
   const handleEditPlaza = async () => {
@@ -459,16 +483,42 @@ export default function AdminDashboard() {
         setNuevoNombrePlaza("")
         setShowPlazaModal(false)
         fetchPlazas()
+        setPlazaPageMensaje("✅ Plaza editada exitosamente")
+        setTimeout(() => setPlazaPageMensaje(null), 3000)
       }
     } catch {}
   }
 
-  const handleDeletePlaza = async (nombre: string) => {
+  const handleDeletePlaza = (plaza: Plaza) => {
+    setDeletingPlaza(plaza)
+    setShowDeletePlazaConfirmModal(true)
+  }
+
+  const confirmDeletePlaza = async () => {
+    if (!deletingPlaza) return
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      const res = await fetch(`${apiUrl}/plazas/${nombre}`, { method: "DELETE" })
-      if (res.ok) fetchPlazas()
-    } catch {}
+      const res = await fetch(`${apiUrl}/plazas/${deletingPlaza.nombre}`, { method: "DELETE" })
+      if (res.ok) {
+        setPlazaPageMensaje("✅ Plaza eliminada correctamente")
+        fetchPlazas()
+        setTimeout(() => setPlazaPageMensaje(null), 3000)
+      } else {
+        setPlazaPageMensaje("❌ Error al eliminar la plaza")
+        setTimeout(() => setPlazaPageMensaje(null), 3000)
+      }
+    } catch {
+      setPlazaPageMensaje("❌ Error de conexión al eliminar la plaza")
+      setTimeout(() => setPlazaPageMensaje(null), 3000)
+    } finally {
+      setShowDeletePlazaConfirmModal(false)
+      setDeletingPlaza(null)
+    }
+  }
+
+  const cancelDeletePlaza = () => {
+    setShowDeletePlazaConfirmModal(false)
+    setDeletingPlaza(null)
   }
 
   useEffect(() => {
@@ -1291,6 +1341,8 @@ export default function AdminDashboard() {
     setShowEditSupervisorModal(false)
     setShowDeleteConfirmModal(false)
     setShowDeleteSupervisorConfirmModal(false) // Added supervisor delete modal to close function
+    setDeletingPlaza(null) // Added plaza deletion state reset
+    setShowDeletePlazaConfirmModal(false) // Added plaza delete modal to close function
     setEditingAssistant(null)
     setEditingSupervisor(null)
     setDeletingAssistant(null)
@@ -1302,6 +1354,7 @@ export default function AdminDashboard() {
     resetEditAssistant()
     resetEditSupervisor()
     setSearchTerm("") // Clear search term when closing modal
+    setPlazaMensaje(null) // Clear plaza message
   }
 
   const handleCloseErrorDialog = () => {
@@ -1827,6 +1880,17 @@ export default function AdminDashboard() {
                   </div>
                 ) : activeSection === "plazas" ? (
                   <div className="space-y-6">
+                    {plazaPageMensaje && (
+                      <div
+                        className={`p-4 rounded-md ${
+                          plazaPageMensaje.startsWith("✅")
+                            ? "bg-green-50 text-green-800 border border-green-200"
+                            : "bg-red-50 text-red-800 border border-red-200"
+                        }`}
+                      >
+                        {plazaPageMensaje}
+                      </div>
+                    )}
                     <div className="flex items-center justify-end"></div>
                     <Card>
                       <CardContent className="pt-6">
@@ -1866,7 +1930,7 @@ export default function AdminDashboard() {
                                       variant="ghost"
                                       size="sm"
                                       title="Eliminar plaza"
-                                      onClick={() => handleDeletePlaza(plaza.nombre)}
+                                      onClick={() => handleDeletePlaza(plaza)}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -1888,12 +1952,18 @@ export default function AdminDashboard() {
                           setEditingPlaza(null)
                           setPlazaNombre("")
                           setNuevoNombrePlaza("")
+                          setPlazaMensaje(null)
                         }
                       }}
                     >
                       <DialogContent>
                         <DialogTitle>{editingPlaza ? "Editar Plaza" : "Nueva Plaza"}</DialogTitle>
                         <div className="space-y-4">
+                          {plazaMensaje && (
+                            <div className="p-3 rounded-md bg-red-50 text-red-800 border border-red-200">
+                              {plazaMensaje}
+                            </div>
+                          )}
                           <Input
                             placeholder="Nombre de la plaza"
                             value={editingPlaza ? nuevoNombrePlaza : plazaNombre}
@@ -1918,6 +1988,29 @@ export default function AdminDashboard() {
                               disabled={!(editingPlaza ? nuevoNombrePlaza : plazaNombre)}
                             >
                               {editingPlaza ? "Guardar Cambios" : "Crear"}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={showDeletePlazaConfirmModal} onOpenChange={setShowDeletePlazaConfirmModal}>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                          <AlertTriangle className="h-5 w-5" />
+                          <span>Confirmar Eliminación</span>
+                        </DialogTitle>
+                        <div className="space-y-4">
+                          <p>
+                            ¿Estás seguro de que deseas eliminar la plaza <strong>{deletingPlaza?.nombre}</strong>?
+                          </p>
+                          <p className="text-sm text-muted-foreground">Esta acción no se puede deshacer.</p>
+                          <div className="flex justify-end space-x-2">
+                            <Button variant="outline" onClick={cancelDeletePlaza}>
+                              Cancelar
+                            </Button>
+                            <Button variant="destructive" onClick={confirmDeletePlaza}>
+                              Eliminar
                             </Button>
                           </div>
                         </div>
