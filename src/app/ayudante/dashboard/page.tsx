@@ -24,6 +24,11 @@ interface AyudantiaData {
   tipo_ayudante: string
 }
 
+interface PeriodoData {
+  nombre: string
+  actual: boolean
+}
+
 export default function AyudanteDashboardPage() {
   const [ayudante, setAyudante] = useState<AyudanteData | null>(null)
   const [ayudantia, setAyudantia] = useState<AyudantiaData | null>(null)
@@ -33,7 +38,24 @@ export default function AyudanteDashboardPage() {
   const [objetivoText, setObjetivoText] = useState("")
   const [isSavingObjetivo, setIsSavingObjetivo] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [periodoActual, setPeriodoActual] = useState<string | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const fetchPeriodoActual = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/actual`)
+        if (response.ok) {
+          const data: PeriodoData = await response.json()
+          setPeriodoActual(data.nombre)
+        }
+      } catch (error) {
+        console.error("Error fetching periodo actual:", error)
+      }
+    }
+
+    fetchPeriodoActual()
+  }, [])
 
   useEffect(() => {
     const fetchAyudanteData = async () => {
@@ -143,6 +165,11 @@ export default function AyudanteDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {periodoActual && (
+              <div className="text-sm font-medium text-foreground bg-accent/50 px-3 py-1.5 rounded-lg">
+                Periodo Actual: <span className="font-bold">{periodoActual}</span>
+              </div>
+            )}
             {ayudante && (
               <div className="text-right">
                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">

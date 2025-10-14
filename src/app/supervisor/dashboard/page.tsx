@@ -1,12 +1,29 @@
 "use client"
 
-import { BookOpen, Users, LogOut } from "lucide-react"
+import { BookOpen, Users, LogOut, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 
 export default function SupervisorDashboard() {
   const router = useRouter()
+  const [periodoActual, setPeriodoActual] = useState<string>("")
+
+  useEffect(() => {
+    const fetchPeriodoActual = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/actual`)
+        if (response.ok) {
+          const data = await response.json()
+          setPeriodoActual(data.nombre)
+        }
+      } catch (error) {
+        console.error("Error al obtener periodo actual:", error)
+      }
+    }
+    fetchPeriodoActual()
+  }, [])
 
   const handleLogout = () => {
     router.push("/supervisor/login")
@@ -27,10 +44,19 @@ export default function SupervisorDashboard() {
                 <p className="text-sm text-muted-foreground">Panel de Supervisor</p>
               </div>
             </div>
-            <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2 bg-transparent">
-              <LogOut className="h-4 w-4" />
-              <span>Cerrar Sesión</span>
-            </Button>
+            <div className="flex items-center gap-4">
+              {periodoActual && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Periodo Actual:</span>
+                  <span className="font-semibold text-foreground">{periodoActual}</span>
+                </div>
+              )}
+              <Button variant="outline" onClick={handleLogout} className="flex items-center space-x-2 bg-transparent">
+                <LogOut className="h-4 w-4" />
+                <span>Cerrar Sesión</span>
+              </Button>
+            </div>
           </div>
         </div>
       </header>

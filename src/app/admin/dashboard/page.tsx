@@ -2,7 +2,9 @@
 
 import type React from "react"
 
-import { useState, useEffect, useMemo } from "react"
+import { useMemo } from "react"
+
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,9 +30,7 @@ import {
   Briefcase,
   TrendingUp,
   Award,
-  Settings,
   LogOut,
-  Bell,
   Search,
   Plus,
   Menu,
@@ -40,10 +40,11 @@ import {
   AlertTriangle,
   Edit,
   Trash2,
-  CheckCircle2,
   Building2,
   Activity,
   ClipboardList,
+  Calendar,
+  Check,
 } from "lucide-react"
 
 const createAssistantSchema = z.object({
@@ -95,6 +96,11 @@ type EditAssistantForm = z.infer<typeof editAssistantSchema>
 type CreateSupervisorForm = z.infer<typeof createSupervisorSchema>
 type EditSupervisorForm = z.infer<typeof editSupervisorSchema>
 
+type Periodo = {
+  nombre: string
+  actual: boolean
+}
+
 interface Facultad {
   nombre: string
 }
@@ -135,7 +141,10 @@ interface Ayudantia {
   desc_objetivo: string // Added field
 }
 
-export default function AdminDashboard() {
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL // Define API_BASE_URL
+
+export default function AdminDashboardPage() {
+  // Renamed component to AdminDashboardPage
   const router = useRouter()
   const [activeSection, setActiveSection] = useState("users")
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -157,12 +166,29 @@ export default function AdminDashboard() {
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [errorDialogMessage, setErrorDialogMessage] = useState("")
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [adminEmail, setAdminEmail] = useState("")
   const [facultades, setFacultades] = useState<Facultad[]>([])
   const [loadingFacultades, setLoadingFacultades] = useState(false)
   const [carreras, setCarreras] = useState<Carrera[]>([])
   const [loadingCarreras, setLoadingCarreras] = useState(false)
+
+  const [periodos, setPeriodos] = useState<Periodo[]>([])
+  const [loadingPeriodos, setLoadingPeriodos] = useState(false)
+  // Added state for create periodo modal
+  const [showCreatePeriodoModal, setShowCreatePeriodoModal] = useState(false)
+  const [newPeriodo, setNewPeriodo] = useState({
+    firstPart: "25",
+    secondPart: "26",
+    suffix: "1",
+    actual: false,
+  })
+
+  const [showConfirmStatusChange, setShowConfirmStatusChange] = useState(false)
+  const [periodoToChange, setPeriodoToChange] = useState<{ nombre: string; currentStatus: boolean } | null>(null)
+
+  const [periodoActual, setPeriodoActual] = useState<string>("")
 
   const [ayudantes, setAyudantes] = useState<Ayudante[]>([])
   const [supervisores, setSupervisores] = useState<Supervisor[]>([])
@@ -258,17 +284,33 @@ export default function AdminDashboard() {
     checkAuth()
   }, [router])
 
+  const fetchPeriodoActual = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/actual`)
+      if (response.ok) {
+        const data = await response.json()
+        setPeriodoActual(data.nombre)
+      } else {
+        setPeriodoActual("Sin periodo activo")
+      }
+    } catch (error) {
+      console.error("Error al obtener periodo actual:", error)
+      setPeriodoActual("Error")
+    }
+  }
+
   const fetchFacultades = async () => {
     try {
       setLoadingFacultades(true)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         console.error("API URL not configured")
         return
       }
 
-      const response = await fetch(`${apiUrl}/facultades`)
+      const response = await fetch(`${API_BASE_URL}/facultades`) // Use API_BASE_URL
 
       if (!response.ok) {
         throw new Error(`Error fetching faculties: ${response.status}`)
@@ -298,14 +340,15 @@ export default function AdminDashboard() {
 
     try {
       setLoadingCarreras(true)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         console.error("API URL not configured")
         return
       }
 
-      const response = await fetch(`${apiUrl}/facultades/${encodeURIComponent(facultadNombre)}/carreras`)
+      const response = await fetch(`${API_BASE_URL}/facultades/${encodeURIComponent(facultadNombre)}/carreras`) // Use API_BASE_URL
 
       if (!response.ok) {
         throw new Error(`Error fetching careers: ${response.status}`)
@@ -337,14 +380,15 @@ export default function AdminDashboard() {
 
     try {
       setLoadingCarreras(true)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         console.error("API URL not configured")
         return
       }
 
-      const response = await fetch(`${apiUrl}/facultades/${encodeURIComponent(facultadNombre)}/carreras`)
+      const response = await fetch(`${API_BASE_URL}/facultades/${encodeURIComponent(facultadNombre)}/carreras`) // Use API_BASE_URL
 
       if (!response.ok) {
         throw new Error(`Error fetching careers: ${response.status}`)
@@ -404,8 +448,8 @@ export default function AdminDashboard() {
   const fetchPlazas = async () => {
     setLoadingPlazas(true)
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      const res = await fetch(`${apiUrl}/plazas`)
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
+      const res = await fetch(`${API_BASE_URL}/plazas`) // Use API_BASE_URL
       const data = await res.json()
       const sortedPlazas = data.sort((a: Plaza, b: Plaza) => a.nombre.localeCompare(b.nombre))
       setPlazas(sortedPlazas)
@@ -421,8 +465,8 @@ export default function AdminDashboard() {
 
   const fetchTipos = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      const res = await fetch(`${apiUrl}/tipos-ayudante`)
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
+      const res = await fetch(`${API_BASE_URL}/tipos-ayudante`) // Use API_BASE_URL
       const data = await res.json()
       setTipos(data)
       if (data.length > 0 && !tipoAyudantia) {
@@ -436,8 +480,9 @@ export default function AdminDashboard() {
   const handleCreatePlaza = async () => {
     if (!plazaNombre) return
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      const res = await fetch(`${apiUrl}/plazas`, {
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
+      const res = await fetch(`${API_BASE_URL}/plazas`, {
+        // Use API_BASE_URL
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre: plazaNombre }),
@@ -472,8 +517,9 @@ export default function AdminDashboard() {
   const handleEditPlaza = async () => {
     if (!editingPlaza) return
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      const res = await fetch(`${apiUrl}/plazas/${editingPlaza.nombre}`, {
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
+      const res = await fetch(`${API_BASE_URL}/plazas/${editingPlaza.nombre}`, {
+        // Use API_BASE_URL
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nuevoNombre: nuevoNombrePlaza }),
@@ -497,8 +543,8 @@ export default function AdminDashboard() {
   const confirmDeletePlaza = async () => {
     if (!deletingPlaza) return
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      const res = await fetch(`${apiUrl}/plazas/${deletingPlaza.nombre}`, { method: "DELETE" })
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
+      const res = await fetch(`${API_BASE_URL}/plazas/${deletingPlaza.nombre}`, { method: "DELETE" }) // Use API_BASE_URL
       if (res.ok) {
         setPlazaPageMensaje("✅ Plaza eliminada correctamente")
         fetchPlazas()
@@ -522,6 +568,11 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
+    // Added fetchPeriodoActual call
+    fetchPeriodoActual()
+  }, [])
+
+  useEffect(() => {
     if (activeSection === "plazas") fetchPlazas()
   }, [activeSection])
 
@@ -531,6 +582,31 @@ export default function AdminDashboard() {
       fetchTipos()
     }
   }, [showAyudantiasView])
+
+  const fetchPeriodos = async () => {
+    try {
+      setLoadingPeriodos(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos`)
+      if (!response.ok) {
+        throw new Error(`Error fetching periodos: ${response.status}`)
+      }
+      const data = await response.json()
+      setPeriodos(data)
+      // Refresh current period when list changes
+      fetchPeriodoActual()
+    } catch (error) {
+      console.error("Error fetching periodos:", error)
+      setPeriodos([]) // Fallback to empty array on error
+    } finally {
+      setLoadingPeriodos(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeSection === "periodos") {
+      fetchPeriodos()
+    }
+  }, [activeSection])
 
   useEffect(() => {
     const selectedFacultad = watch("facultad")
@@ -553,14 +629,15 @@ export default function AdminDashboard() {
   const fetchAyudantes = async () => {
     try {
       setLoadingAyudantes(true)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         console.error("API URL not configured")
         return
       }
 
-      const response = await fetch(`${apiUrl}/ayudantes`)
+      const response = await fetch(`${API_BASE_URL}/ayudantes`) // Use API_BASE_URL
 
       if (!response.ok) {
         throw new Error(`Error fetching ayudantes: ${response.status}`)
@@ -578,12 +655,13 @@ export default function AdminDashboard() {
 
   const fetchAyudantias = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      if (!apiUrl) {
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         console.error("API URL not configured")
         return
       }
-      const response = await fetch(`${apiUrl}/ayudantias`)
+      const response = await fetch(`${API_BASE_URL}/ayudantias`) // Use API_BASE_URL
       if (!response.ok) {
         throw new Error(`Error fetching ayudantias: ${response.status}`)
       }
@@ -598,14 +676,15 @@ export default function AdminDashboard() {
   const fetchSupervisores = async () => {
     try {
       setLoadingSupervisores(true)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         console.error("API URL not configured")
         return
       }
 
-      const response = await fetch(`${apiUrl}/supervisores`)
+      const response = await fetch(`${API_BASE_URL}/supervisores`) // Use API_BASE_URL
 
       if (!response.ok) {
         throw new Error(`Error fetching supervisores: ${response.status}`)
@@ -655,20 +734,21 @@ export default function AdminDashboard() {
       setApiError(null)
       setApiMessage(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
       console.log("[v0] =================================")
       console.log("[v0] DEBUGGING INFORMACIÓN DE API:")
-      console.log("[v0] API URL desde env:", apiUrl)
+      console.log("[v0] API URL desde env:", API_BASE_URL) // Use API_BASE_URL
       console.log("[v0] Datos a enviar:", data)
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         const errorMsg =
           "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local"
         console.log("[v0]", errorMsg)
         throw new Error(errorMsg)
       }
 
-      const fullUrl = `${apiUrl}/ayudantes`
+      const fullUrl = `${API_BASE_URL}/ayudantes` // Use API_BASE_URL
       console.log("[v0] URL completa que se va a llamar:", fullUrl)
       console.log("[v0] Método: POST")
       console.log("[v0] Headers: Content-Type: application/json")
@@ -708,7 +788,8 @@ export default function AdminDashboard() {
         throw new Error(errorMessage || "Error al crear el ayudante")
       }
 
-      const assistantDataResponse = await fetch(`${apiUrl}/ayudantes/${data.cedula}`, {
+      const assistantDataResponse = await fetch(`${API_BASE_URL}/ayudantes/${data.cedula}`, {
+        // Use API_BASE_URL
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -822,15 +903,16 @@ export default function AdminDashboard() {
       setApiError(null)
       setApiMessage(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         throw new Error(
           "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
         )
       }
 
-      const fullUrl = `${apiUrl}/ayudantes/${editingAssistant.cedula}`
+      const fullUrl = `${API_BASE_URL}/ayudantes/${editingAssistant.cedula}` // Use API_BASE_URL
 
       const response = await fetch(fullUrl, {
         method: "PUT",
@@ -900,15 +982,16 @@ export default function AdminDashboard() {
       setApiError(null)
       setApiMessage(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         throw new Error(
           "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
         )
       }
 
-      const fullUrl = `${apiUrl}/supervisores`
+      const fullUrl = `${API_BASE_URL}/supervisores` // Use API_BASE_URL
 
       const response = await fetch(fullUrl, {
         method: "POST",
@@ -962,7 +1045,7 @@ export default function AdminDashboard() {
 
       try {
         // Get the complete supervisor data including the auto-generated password
-        const supervisorResponse = await fetch(`${apiUrl}/supervisores/${data.cedula}`)
+        const supervisorResponse = await fetch(`${API_BASE_URL}/supervisores/${data.cedula}`) // Use API_BASE_URL
 
         if (supervisorResponse.ok) {
           const supervisorData = await supervisorResponse.json()
@@ -1061,15 +1144,16 @@ export default function AdminDashboard() {
       setApiError(null)
       setApiMessage(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         throw new Error(
           "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
         )
       }
 
-      const fullUrl = `${apiUrl}/supervisores/${editingSupervisor.cedula}`
+      const fullUrl = `${API_BASE_URL}/supervisores/${editingSupervisor.cedula}` // Use API_BASE_URL
 
       const response = await fetch(fullUrl, {
         method: "PUT",
@@ -1199,15 +1283,16 @@ export default function AdminDashboard() {
       setApiError(null)
       setApiMessage(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         throw new Error(
           "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
         )
       }
 
-      const fullUrl = `${apiUrl}/ayudantes/${deletingAssistant.cedula}`
+      const fullUrl = `${API_BASE_URL}/ayudantes/${deletingAssistant.cedula}` // Use API_BASE_URL
 
       const response = await fetch(fullUrl, {
         method: "DELETE",
@@ -1277,15 +1362,16 @@ export default function AdminDashboard() {
       setApiError(null)
       setApiMessage(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         throw new Error(
           "❌ URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local",
         )
       }
 
-      const fullUrl = `${apiUrl}/supervisores/${deletingSupervisor.cedula}`
+      const fullUrl = `${API_BASE_URL}/supervisores/${deletingSupervisor.cedula}` // Use API_BASE_URL
 
       const response = await fetch(fullUrl, {
         method: "DELETE",
@@ -1362,10 +1448,11 @@ export default function AdminDashboard() {
     setErrorDialogMessage("")
   }
 
-  const handleCloseSuccessModal = () => {
-    setShowSuccessModal(false)
-    setApiMessage(null)
-  }
+  // Removed success modal handler, replaced with unified handler
+  // const handleCloseSuccessModal = () => {
+  //   setShowSuccessModal(false)
+  //   setApiMessage(null)
+  // }
 
   const handleVerCrearAyudantias = () => {
     // Fetch ayudantias when switching to the view
@@ -1412,17 +1499,19 @@ export default function AdminDashboard() {
       return
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL
-    console.log("[v0] API URL:", apiUrl)
+    // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
+    console.log("[v0] API URL:", API_BASE_URL) // Use API_BASE_URL
 
-    if (!apiUrl) {
+    if (!API_BASE_URL) {
+      // Use API_BASE_URL
       setApiError("URL del backend no configurada.")
       return
     }
 
     try {
-      console.log("[v0] Sending request to:", `${apiUrl}/ayudantias`)
-      const response = await fetch(`${apiUrl}/ayudantias`, {
+      console.log("[v0] Sending request to:", `${API_BASE_URL}/ayudantias`) // Use API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/ayudantias`, {
+        // Use API_BASE_URL
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1481,13 +1570,14 @@ export default function AdminDashboard() {
       setApiError(null)
       setApiMessage(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      // const apiUrl = process.env.NEXT_PUBLIC_API_URL // Removed redundant API URL fetch
 
-      if (!apiUrl) {
+      if (!API_BASE_URL) {
+        // Use API_BASE_URL
         throw new Error("URL del backend no configurada. Verifica que NEXT_PUBLIC_API_URL esté definida en .env.local")
       }
 
-      const fullUrl = `${apiUrl}/ayudantias/${deletingAyudantia.id}`
+      const fullUrl = `${API_BASE_URL}/ayudantias/${deletingAyudantia.id}` // Use API_BASE_URL
 
       const response = await fetch(fullUrl, {
         method: "DELETE",
@@ -1528,6 +1618,76 @@ export default function AdminDashboard() {
     setDeletingAyudantia(null)
   }
 
+  const handleCreatePeriodo = async () => {
+    const nombrePeriodo = `${newPeriodo.firstPart}${newPeriodo.secondPart}-${newPeriodo.suffix}`
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: nombrePeriodo,
+          actual: newPeriodo.actual,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        // Show user-friendly error message in dialog
+        setErrorDialogMessage(errorData.error || "Error al crear el periodo")
+        setShowErrorDialog(true)
+        return
+      }
+
+      const result = await response.json()
+      setSuccessMessage(result.status || "Periodo creado exitosamente")
+      setShowSuccessModal(true)
+      setShowCreatePeriodoModal(false)
+      fetchPeriodos()
+    } catch (error: any) {
+      console.error("Error creating periodo:", error)
+      setErrorDialogMessage(error.message || "Error desconocido al crear el periodo")
+      setShowErrorDialog(true)
+    }
+  }
+
+  const handleTogglePeriodoStatus = async (nombre: string, currentStatus: boolean) => {
+    setPeriodoToChange({ nombre, currentStatus })
+    setShowConfirmStatusChange(true)
+  }
+
+  const confirmStatusChange = async () => {
+    if (!periodoToChange) return
+
+    try {
+      const newStatus = !periodoToChange.currentStatus
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/${periodoToChange.nombre}/actual`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ actual: newStatus }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Error al actualizar el periodo")
+      }
+
+      setSuccessMessage("Estado del periodo actualizado correctamente")
+      setShowSuccessModal(true)
+      setShowConfirmStatusChange(false)
+      setPeriodoToChange(null)
+      fetchPeriodos()
+    } catch (error) {
+      setErrorDialogMessage(error instanceof Error ? error.message : "Error al actualizar el periodo")
+      setShowErrorDialog(true)
+      setShowConfirmStatusChange(false)
+      setPeriodoToChange(null)
+    }
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1541,6 +1701,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Update header to show current period instead of icons */}
       <header className="border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="flex h-16 items-center px-6">
           <div className="flex items-center space-x-4">
@@ -1557,16 +1718,13 @@ export default function AdminDashboard() {
           </div>
 
           <div className="ml-auto flex items-center space-x-4">
+            {/* Show current period */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Periodo Actual:</span>
+              <span className="text-sm font-semibold text-primary">{periodoActual || "Cargando..."}</span>
+            </div>
             <div className="text-sm text-muted-foreground">{adminEmail}</div>
-            <Button variant="ghost" size="sm">
-              <Search className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Bell className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Settings className="h-4 w-4" />
-            </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Cerrar Sesión
@@ -1614,6 +1772,14 @@ export default function AdminDashboard() {
                   color: "bg-orange-500",
                   stats: "12 evaluaciones pendientes",
                 },
+                {
+                  id: "periodos",
+                  title: "Gestión de Periodos",
+                  description: "Administrar periodos académicos",
+                  icon: <Calendar className="h-4 w-4" />,
+                  color: "bg-indigo-500",
+                  stats: "Periodos académicos",
+                },
               ].map((section) => (
                 <Button
                   key={section.id}
@@ -1641,6 +1807,7 @@ export default function AdminDashboard() {
                       { id: "plazas", title: "Gestión de Plazas de Ayudantía" },
                       { id: "seguimiento", title: "Seguimiento de Ayudantías" },
                       { id: "evaluacion", title: "Evaluación y Beneficios" },
+                      { id: "periodos", title: "Gestión de Periodos" },
                     ].find((s) => s.id === activeSection)?.title
                   }
                 </h2>
@@ -1653,7 +1820,9 @@ export default function AdminDashboard() {
                         ? "Monitorea el progreso y las actividades de las ayudantías."
                         : activeSection === "evaluacion"
                           ? "Gestiona las evaluaciones de los ayudantes y sus beneficios."
-                          : `Esta sección estará disponible próximamente.`}
+                          : activeSection === "periodos"
+                            ? "Administra los periodos académicos del sistema."
+                            : `Esta sección estará disponible próximamente.`}
                 </CardDescription>
               </div>
 
@@ -1687,27 +1856,34 @@ export default function AdminDashboard() {
 
             <Card className="border-border/50">
               <CardHeader>
-                <CardTitle className="text-foreground">
-                  {
-                    [
-                      { id: "users", title: "Lista de Usuarios" },
-                      { id: "plazas", title: "Lista de Plazas" },
-                      { id: "seguimiento", title: "Seguimiento de Ayudantías" },
-                      { id: "evaluacion", title: "Evaluación y Beneficios" },
-                    ].find((s) => s.id === activeSection)?.title
-                  }
-                </CardTitle>
-                <CardDescription>
-                  {activeSection === "users"
-                    ? "Visualiza, edita o elimina los ayudantes y supervisores registrados."
-                    : activeSection === "plazas"
-                      ? "Administra las plazas disponibles para las ayudantías."
-                      : activeSection === "seguimiento"
-                        ? "Revisa las asignaciones, actividades y el progreso de las ayudantías."
-                        : activeSection === "evaluacion"
-                          ? "Gestiona las evaluaciones de los ayudantes y los beneficios asociados."
-                          : `Esta funcionalidad estará disponible próximamente.`}
-                </CardDescription>
+                {activeSection !== "periodos" && (
+                  <>
+                    <CardTitle className="text-foreground">
+                      {
+                        [
+                          { id: "users", title: "Lista de Usuarios" },
+                          { id: "plazas", title: "Lista de Plazas" },
+                          { id: "seguimiento", title: "Seguimiento de Ayudantías" },
+                          { id: "evaluacion", title: "Evaluación y Beneficios" },
+                          { id: "periodos", title: "Periodos Académicos" },
+                        ].find((s) => s.id === activeSection)?.title
+                      }
+                    </CardTitle>
+                    <CardDescription>
+                      {activeSection === "users"
+                        ? "Visualiza, edita o elimina los ayudantes y supervisores registrados."
+                        : activeSection === "plazas"
+                          ? "Administra las plazas disponibles para las ayudantías."
+                          : activeSection === "seguimiento"
+                            ? "Revisa las asignaciones, actividades y el progreso de las ayudantías."
+                            : activeSection === "evaluacion"
+                              ? "Gestiona las evaluaciones de los ayudantes y los beneficios asociados."
+                              : activeSection === "periodos"
+                                ? "Gestiona los periodos académicos del sistema."
+                                : `Esta funcionalidad estará disponible próximamente.`}
+                    </CardDescription>
+                  </>
+                )}
               </CardHeader>
               <CardContent>
                 {activeSection === "users" ? (
@@ -1995,7 +2171,7 @@ export default function AdminDashboard() {
                     </Dialog>
 
                     <Dialog open={showDeletePlazaConfirmModal} onOpenChange={setShowDeletePlazaConfirmModal}>
-                      <DialogContent className="sm:max-w-md">
+                      <DialogContent className="sm:max-md">
                         <DialogTitle className="flex items-center gap-2 text-red-600">
                           <AlertTriangle className="h-5 w-5" />
                           <span>Confirmar Eliminación</span>
@@ -2018,11 +2194,14 @@ export default function AdminDashboard() {
                     </Dialog>
                   </div>
                 ) : (
-                  (activeSection === "seguimiento" || activeSection === "evaluacion") && (
+                  (activeSection === "seguimiento" ||
+                    activeSection === "evaluacion" ||
+                    activeSection === "periodos") && ( // Added "periodos" to the condition
                     <div className="flex flex-col items-center justify-center py-12 gap-6">
                       {activeSection === "seguimiento" ? (
                         showAyudantiasView ? (
                           <div className="w-full">
+                            {/* Removed duplicate title and description, kept only button */}
                             <div className="flex items-center justify-between mb-6">
                               <div className="flex items-center gap-4">
                                 <Button variant="outline" size="sm" onClick={handleBackFromAyudantias}>
@@ -2149,8 +2328,7 @@ export default function AdminDashboard() {
                             </Card>
                           </div>
                         )
-                      ) : (
-                        // This is the placeholder for the 'evaluacion' section
+                      ) : activeSection === "evaluacion" ? ( // This is the placeholder for the 'evaluacion' section
                         <div>
                           <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
                             {
@@ -2194,6 +2372,82 @@ export default function AdminDashboard() {
                           <p className="text-muted-foreground mb-4">
                             Esta funcionalidad se desarrollará en las próximas iteraciones.
                           </p>
+                        </div> // This is the section for 'periodos'
+                      ) : (
+                        <div className="space-y-6">
+                          {/* Removed duplicate title and description, kept only button */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h2 className="text-2xl font-bold">Lista de Periodos Académicos</h2>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Haz clic en el estado de un periodo para activarlo o desactivarlo
+                              </p>
+                            </div>
+                            <Button onClick={() => setShowCreatePeriodoModal(true)} className="gap-2">
+                              <Plus className="h-4 w-4" />
+                              Crear Periodo
+                            </Button>
+                          </div>
+
+                          {loadingPeriodos ? (
+                            <div className="flex items-center justify-center py-8">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                            </div>
+                          ) : periodos.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg">
+                              <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                              <p className="text-muted-foreground">No hay periodos registrados</p>
+                            </div>
+                          ) : (
+                            <div className="border rounded-lg overflow-hidden">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Periodo</TableHead>
+                                    <TableHead>Estado</TableHead>
+                                    <TableHead className="text-right">Acciones</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {periodos.map((periodo) => (
+                                    <TableRow key={periodo.nombre}>
+                                      <TableCell className="font-medium">{periodo.nombre}</TableCell>
+                                      <TableCell>
+                                        <button
+                                          onClick={() => handleTogglePeriodoStatus(periodo.nombre, periodo.actual)}
+                                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-opacity hover:opacity-80 cursor-pointer"
+                                          style={{
+                                            backgroundColor: periodo.actual
+                                              ? "rgb(34 197 94 / 0.1)"
+                                              : "rgb(107 114 128 / 0.1)",
+                                            color: periodo.actual ? "rgb(22 163 74)" : "rgb(75 85 99)",
+                                            border: periodo.actual
+                                              ? "1px solid rgb(34 197 94 / 0.2)"
+                                              : "1px solid rgb(107 114 128 / 0.2)",
+                                          }}
+                                        >
+                                          {periodo.actual && (
+                                            <span className="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+                                          )}
+                                          {periodo.actual ? "Periodo Actual" : "Inactivo"}
+                                        </button>
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                          disabled
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2209,7 +2463,7 @@ export default function AdminDashboard() {
         <DialogContent className="sm:max-w-md">
           <DialogTitle className="flex items-center space-x-2 text-red-600">
             <AlertTriangle className="h-5 w-5" />
-            <span>Error al crear {showSupervisorForm ? "supervisor" : "ayudante"}</span>
+            <span>Error</span>
           </DialogTitle>
 
           <div className="py-4">
@@ -2929,234 +3183,112 @@ export default function AdminDashboard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showSuccessModal} onOpenChange={handleCloseSuccessModal}>
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
         <DialogContent className="sm:max-w-md">
-          <DialogTitle className="flex items-center space-x-2 text-green-600">
-            <CheckCircle2 className="h-5 w-5" />
-            <span>Operación Exitosa</span>
-          </DialogTitle>
-
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">{apiMessage}</p>
-          </div>
-
-          <div className="flex justify-end">
-            <Button onClick={handleCloseSuccessModal}>Aceptar</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showDeleteConfirmModal} onOpenChange={() => {}}>
-        <DialogContent
-          className="sm:max-w-md"
-          showCloseButton={false}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
-          <DialogTitle className="flex items-center space-x-2 text-red-600">
-            <AlertTriangle className="h-5 w-5" />
-            <span>Confirmar Eliminación</span>
-          </DialogTitle>
-
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground mb-4">
-              ¿Estás seguro de que deseas eliminar al ayudante{" "}
-              <span className="font-semibold text-foreground">{deletingAssistant?.nombre}</span> con cédula{" "}
-              <span className="font-semibold text-foreground">{deletingAssistant?.cedula}</span>?
-            </p>
-            <p className="text-sm text-red-600 font-medium">Esta acción no se puede deshacer.</p>
-
-            {apiError && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-800">❌ {apiError}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={cancelDeleteAssistant} disabled={isDeleting}>
-              Cancelar
-            </Button>
-            <Button type="button" variant="destructive" onClick={confirmDeleteAssistant} disabled={isDeleting}>
-              {isDeleting ? "Eliminando..." : "Eliminar"}
+          <div className="flex flex-col items-center justify-center py-6 space-y-4">
+            <div className="rounded-full bg-green-100 p-3">
+              <Check className="h-8 w-8 text-green-600" />
+            </div>
+            <p className="text-center text-lg font-medium">{successMessage}</p>
+            <Button onClick={() => setShowSuccessModal(false)} className="w-full">
+              OK
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showDeleteSupervisorConfirmModal} onOpenChange={() => {}}>
-        {" "}
-        {/* Added supervisor delete confirmation modal */}
-        <DialogContent
-          className="sm:max-w-md"
-          showCloseButton={false}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
-          <DialogTitle className="flex items-center space-x-2 text-red-600">
-            <AlertTriangle className="h-5 w-5" />
-            <span>Confirmar Eliminación</span>
-          </DialogTitle>
-
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground mb-4">
-              ¿Estás seguro de que deseas eliminar al supervisor{" "}
-              <span className="font-semibold text-foreground">{deletingSupervisor?.nombre}</span> con cédula{" "}
-              <span className="font-semibold text-foreground">{deletingSupervisor?.cedula}</span>?
-            </p>
-            <p className="text-sm text-red-600 font-medium">Esta acción no se puede deshacer.</p>
-
-            {apiError && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-800">❌ {apiError}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={cancelDeleteSupervisor} disabled={isDeletingSupervisor}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={confirmDeleteSupervisor}
-              disabled={isDeletingSupervisor}
-            >
-              {isDeletingSupervisor ? "Eliminando..." : "Eliminar"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showCreateAyudantiaModal} onOpenChange={() => {}}>
-        <DialogContent
-          className="sm:max-w-md"
-          showCloseButton={false}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
-        >
-          <DialogTitle className="text-lg font-semibold">Crear Ayudantía</DialogTitle>
-
-          <div className="space-y-2 pb-4">
-            <p className="text-sm text-muted-foreground">Completa los datos para crear una nueva ayudantía</p>
-          </div>
-
-          {apiError && (
-            <div className="rounded-md bg-red-50 p-4 mb-4">
-              <div className="flex">
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">{apiError}</h3>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmitAyudantia} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="cedula-ayudante">Cédula Ayudante</Label>
-              <Input
-                id="cedula-ayudante"
-                type="text"
-                placeholder="12345678"
-                value={cedulaAyudante}
-                onChange={(e) => setCedulaAyudante(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tipo">Tipo</Label>
-              <Select value={tipoAyudantia} onValueChange={setTipoAyudantia}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tipos.map((tipo) => (
-                    <SelectItem key={tipo.tipo} value={tipo.tipo}>
-                      {tipo.tipo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cedula-supervisor">Cédula Supervisor</Label>
-              <Input
-                id="cedula-supervisor"
-                type="text"
-                placeholder="87654321"
-                value={cedulaSupervisor}
-                onChange={(e) => setCedulaSupervisor(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="plaza">Plaza</Label>
-              <Select value={plazaAyudantia} onValueChange={setPlazaAyudantia}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona una plaza" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plazas.map((plaza) => (
-                    <SelectItem key={plaza.nombre} value={plaza.nombre}>
-                      {plaza.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={handleCloseAyudantiaModal}>
-                Cancelar
-              </Button>
-              <Button type="submit">Crear Ayudantía</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={showDeleteAyudantiaModal && deletingAyudantia !== null}
-        onOpenChange={(open) => {
-          if (!open) cancelDeleteAyudantia()
-        }}
-      >
-        <DialogContent>
+      {/* Create Periodo Modal */}
+      <Dialog open={showCreatePeriodoModal} onOpenChange={setShowCreatePeriodoModal}>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Confirmar Eliminación</DialogTitle>
-            <DialogDescription>
-              ¿Estás seguro de que deseas eliminar la ayudantía con ID {deletingAyudantia?.id}? Esta acción no se puede
-              deshacer.
-            </DialogDescription>
+            <DialogTitle>Crear Nuevo Periodo</DialogTitle>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={cancelDeleteAyudantia} disabled={isDeleting}>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Formato del Periodo</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min="25"
+                  value={newPeriodo.firstPart}
+                  onChange={(e) => setNewPeriodo({ ...newPeriodo, firstPart: e.target.value })}
+                  className="w-20"
+                  placeholder="25"
+                />
+                <Input
+                  type="number"
+                  min="26"
+                  value={newPeriodo.secondPart}
+                  onChange={(e) => setNewPeriodo({ ...newPeriodo, secondPart: e.target.value })}
+                  className="w-20"
+                  placeholder="26"
+                />
+                <span className="text-muted-foreground">-</span>
+                <Select
+                  value={newPeriodo.suffix}
+                  onValueChange={(value) => setNewPeriodo({ ...newPeriodo, suffix: value })}
+                >
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1</SelectItem>
+                    <SelectItem value="2">2</SelectItem>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="I">I</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ejemplo: {newPeriodo.firstPart}
+                {newPeriodo.secondPart}-{newPeriodo.suffix}
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="actual"
+                checked={newPeriodo.actual}
+                onChange={(e) => setNewPeriodo({ ...newPeriodo, actual: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor="actual" className="text-sm font-medium cursor-pointer">
+                Marcar como periodo actual
+              </label>
+            </div>
+            {newPeriodo.actual && (
+              <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                Al marcar este periodo como actual, todos los demás periodos se desactivarán automáticamente.
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowCreatePeriodoModal(false)}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={confirmDeleteAyudantia} disabled={isDeleting}>
-              {isDeleting ? "Eliminando..." : "Eliminar"}
-            </Button>
-          </DialogFooter>
+            <Button onClick={handleCreatePeriodo}>Crear Periodo</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showSuccessModal} onOpenChange={handleCloseSuccessModal}>
+      <Dialog open={showConfirmStatusChange} onOpenChange={setShowConfirmStatusChange}>
         <DialogContent className="sm:max-w-md">
-          <DialogTitle className="flex items-center space-x-2 text-green-600">
-            <CheckCircle2 className="h-5 w-5" />
-            <span>Operación Exitosa</span>
-          </DialogTitle>
-
+          <DialogHeader>
+            <DialogTitle>Confirmar Cambio de Estado</DialogTitle>
+          </DialogHeader>
           <div className="py-4">
-            <p className="text-sm text-muted-foreground">{apiMessage}</p>
+            <p className="text-sm text-muted-foreground">
+              {periodoToChange?.currentStatus
+                ? "¿Estás seguro que quieres desactivar este periodo?"
+                : "¿Estás seguro que quieres cambiar este periodo al actual? Esto desactivará el periodo actual."}
+            </p>
           </div>
-
-          <div className="flex justify-end">
-            <Button onClick={handleCloseSuccessModal}>Aceptar</Button>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowConfirmStatusChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmStatusChange}>Confirmar</Button>
           </div>
         </DialogContent>
       </Dialog>
