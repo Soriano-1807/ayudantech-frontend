@@ -223,6 +223,9 @@ export default function AdminDashboardPage() {
   const [deletingAyudantia, setDeletingAyudantia] = useState<Ayudantia | null>(null)
   const [showDeleteAyudantiaModal, setShowDeleteAyudantiaModal] = useState(false)
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [periodoToDelete, setPeriodoToDelete] = useState<string | null>(null)
+
   const {
     register,
     handleSubmit,
@@ -299,6 +302,18 @@ export default function AdminDashboardPage() {
     } catch (error) {
       console.error("Error al obtener periodo actual:", error)
       setPeriodoActual("Error")
+    }
+  }
+
+  const fetchVentanaAprob = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ventana-aprob`)
+      if (response.ok) {
+        const data = await response.json()
+        setEvaluacionActiva(data.activa)
+      }
+    } catch (error) {
+      console.error("Error al obtener ventana de aprobación:", error)
     }
   }
 
@@ -573,6 +588,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     // Added fetchPeriodoActual call
     fetchPeriodoActual()
+    fetchVentanaAprob() // Fetch evaluation status on mount
   }, [])
 
   useEffect(() => {
@@ -1275,6 +1291,7 @@ export default function AdminDashboardPage() {
 
   const handleDeleteAssistant = (ayudante: Ayudante) => {
     setDeletingAssistant(ayudante)
+    setApiError(null)
     setShowDeleteConfirmModal(true)
   }
 
@@ -1317,7 +1334,7 @@ export default function AdminDashboardPage() {
       }
 
       const result = await response.json()
-      setApiMessage(result.status || "✅ Ayudante eliminado correctamente")
+      setSuccessMessage(result.status || "Ayudante eliminado correctamente")
 
       // Close modal and refresh data
       setShowDeleteConfirmModal(false)
@@ -1325,10 +1342,6 @@ export default function AdminDashboardPage() {
       fetchAyudantes() // Refresh the list
 
       setShowSuccessModal(true)
-      // Clear success message after 3 seconds
-      // setTimeout(() => {
-      //   setApiMessage(null)
-      // }, 3000)
     } catch (error) {
       console.error("❌ ERROR:", error)
       setApiError(error instanceof Error ? error.message : "Error desconocido")
@@ -1396,7 +1409,7 @@ export default function AdminDashboardPage() {
       }
 
       const result = await response.json()
-      setApiMessage(result.status || "✅ Supervisor eliminado correctamente")
+      setSuccessMessage(result.status || "Supervisor eliminado correctamente")
 
       // Close modal and refresh data
       setShowDeleteSupervisorConfirmModal(false)
@@ -1404,10 +1417,6 @@ export default function AdminDashboardPage() {
       fetchSupervisores() // Refresh the list
 
       setShowSuccessModal(true)
-      // Clear success message after 3 seconds
-      // setTimeout(() => {
-      //   setApiMessage(null)
-      // }, 3000)
     } catch (error) {
       console.error("❌ ERROR:", error)
       setApiError(error instanceof Error ? error.message : "Error desconocido")
@@ -1465,6 +1474,7 @@ export default function AdminDashboardPage() {
 
   const handleBackFromAyudantias = () => {
     setShowAyudantiasView(false)
+    setSearchTerm("") // Clear search term when returning
   }
 
   const handleCreateAyudantia = () => {
@@ -1550,7 +1560,7 @@ export default function AdminDashboardPage() {
 
       const result = await response.json()
       console.log("[v0] Success result:", result)
-      setApiMessage("Ayudantía creada exitosamente.")
+      setSuccessMessage("Ayudantía creada exitosamente.")
       setShowSuccessModal(true)
       handleCloseAyudantiaModal()
       fetchAyudantias() // Refresh the list of ayudantias after creation
@@ -1601,7 +1611,7 @@ export default function AdminDashboardPage() {
       }
 
       const result = await response.json()
-      setApiMessage(result.status?.replace("✅", "").trim() || "Ayudantía eliminada correctamente")
+      setSuccessMessage(result.status?.replace("✅", "").trim() || "Ayudantía eliminada correctamente")
 
       setShowSuccessModal(true)
       setShowDeleteAyudantiaModal(false)
@@ -1691,6 +1701,55 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const handleDeletePeriodo = async (nombre: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/${nombre}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        setApiError(errorData.error || "Error al eliminar el periodo")
+        return
+      }
+
+      setSuccessMessage("Periodo eliminado correctamente")
+      setShowSuccessModal(true)
+      setShowDeleteConfirm(false)
+      setPeriodoToDelete(null)
+      fetchPeriodos()
+    } catch (error) {
+      console.error("Error al eliminar periodo:", error)
+      setApiError("Error al eliminar el periodo")
+    }
+  }
+
+  // Function to toggle the evaluation status
+  const handleToggleEvaluacion = async () => {
+    try {
+      const newStatus = !evaluacionActiva
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ventana-aprob`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ activa: newStatus }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Error al actualizar el estado de la evaluación")
+      }
+
+      fetchVentanaAprob() // Re-fetch to update the UI
+      setSuccessMessage(`Periodo de evaluación ${newStatus ? "activado" : "desactivado"} correctamente.`)
+      setShowSuccessModal(true)
+    } catch (error) {
+      setErrorDialogMessage(error instanceof Error ? error.message : "Error al actualizar el estado de la evaluación")
+      setShowErrorDialog(true)
+    }
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1726,6 +1785,13 @@ export default function AdminDashboardPage() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Periodo Actual:</span>
               <span className="text-sm font-semibold text-primary">{periodoActual || "Cargando..."}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted">
+              <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Evaluación:</span>
+              <span className={`text-sm font-semibold ${evaluacionActiva ? "text-green-600" : "text-red-600"}`}>
+                {evaluacionActiva ? "Activo" : "Inactivo"}
+              </span>
             </div>
             <div className="text-sm text-muted-foreground">{adminEmail}</div>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -2215,7 +2281,7 @@ export default function AdminDashboardPage() {
                   (activeSection === "seguimiento" ||
                     activeSection === "evaluacion" ||
                     activeSection === "periodos" ||
-                    activeSection === "periodo-evaluacion") && ( // Updated condition
+                    activeSection === "periodo-evaluacion") && (
                     <div className="flex flex-col items-center justify-center py-12 gap-6">
                       {activeSection === "seguimiento" ? (
                         showAyudantiasView ? (
@@ -2404,7 +2470,7 @@ export default function AdminDashboardPage() {
                               : "Active el periodo de evaluación para permitir que los supervisores evalúen a los ayudantes."}
                           </p>
                           <Button
-                            onClick={() => setEvaluacionActiva(!evaluacionActiva)}
+                            onClick={handleToggleEvaluacion}
                             className={
                               evaluacionActiva ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"
                             }
@@ -2476,7 +2542,17 @@ export default function AdminDashboardPage() {
                                           variant="ghost"
                                           size="sm"
                                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                          disabled
+                                          onClick={() => {
+                                            if (periodo.actual) {
+                                              setErrorDialogMessage(
+                                                "No se puede eliminar el período actual. Primero desactívalo antes de eliminarlo.",
+                                              )
+                                              setShowErrorDialog(true)
+                                            } else {
+                                              setPeriodoToDelete(periodo.nombre)
+                                              setShowDeleteConfirm(true)
+                                            }
+                                          }}
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -3329,6 +3405,31 @@ export default function AdminDashboardPage() {
             </Button>
             <Button onClick={confirmStatusChange}>Confirmar</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogTitle>Confirmar Eliminación</DialogTitle>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              ¿Estás seguro que deseas eliminar el periodo <span className="font-semibold">{periodoToDelete}</span>?
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteConfirm(false)
+                setPeriodoToDelete(null)
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={() => periodoToDelete && handleDeletePeriodo(periodoToDelete)}>
+              Eliminar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
