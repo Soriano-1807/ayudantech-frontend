@@ -45,6 +45,7 @@ import {
   ClipboardList,
   Calendar,
   Check,
+  ClipboardCheck,
 } from "lucide-react"
 
 const createAssistantSchema = z.object({
@@ -189,6 +190,8 @@ export default function AdminDashboardPage() {
   const [periodoToChange, setPeriodoToChange] = useState<{ nombre: string; currentStatus: boolean } | null>(null)
 
   const [periodoActual, setPeriodoActual] = useState<string>("")
+
+  const [evaluacionActiva, setEvaluacionActiva] = useState(false)
 
   const [ayudantes, setAyudantes] = useState<Ayudante[]>([])
   const [supervisores, setSupervisores] = useState<Supervisor[]>([])
@@ -1780,6 +1783,14 @@ export default function AdminDashboardPage() {
                   color: "bg-indigo-500",
                   stats: "Periodos académicos",
                 },
+                {
+                  id: "periodo-evaluacion", // Added new section
+                  title: "Periodo de Evaluación",
+                  description: "Gestionar periodos de evaluación",
+                  icon: <ClipboardCheck className="h-4 w-4" />, // Added new icon
+                  color: "bg-teal-500",
+                  stats: "Evaluaciones",
+                },
               ].map((section) => (
                 <Button
                   key={section.id}
@@ -1808,6 +1819,7 @@ export default function AdminDashboardPage() {
                       { id: "seguimiento", title: "Seguimiento de Ayudantías" },
                       { id: "evaluacion", title: "Evaluación y Beneficios" },
                       { id: "periodos", title: "Gestión de Periodos" },
+                      { id: "periodo-evaluacion", title: "Periodo de Evaluación" }, // Added section title
                     ].find((s) => s.id === activeSection)?.title
                   }
                 </h2>
@@ -1822,7 +1834,9 @@ export default function AdminDashboardPage() {
                           ? "Gestiona las evaluaciones de los ayudantes y sus beneficios."
                           : activeSection === "periodos"
                             ? "Administra los periodos académicos del sistema."
-                            : `Esta sección estará disponible próximamente.`}
+                            : activeSection === "periodo-evaluacion" // Added section description
+                              ? "Gestiona los periodos de evaluación del sistema."
+                              : `Esta sección estará disponible próximamente.`}
                 </CardDescription>
               </div>
 
@@ -1856,34 +1870,38 @@ export default function AdminDashboardPage() {
 
             <Card className="border-border/50">
               <CardHeader>
-                {activeSection !== "periodos" && (
-                  <>
-                    <CardTitle className="text-foreground">
-                      {
-                        [
-                          { id: "users", title: "Lista de Usuarios" },
-                          { id: "plazas", title: "Lista de Plazas" },
-                          { id: "seguimiento", title: "Seguimiento de Ayudantías" },
-                          { id: "evaluacion", title: "Evaluación y Beneficios" },
-                          { id: "periodos", title: "Periodos Académicos" },
-                        ].find((s) => s.id === activeSection)?.title
-                      }
-                    </CardTitle>
-                    <CardDescription>
-                      {activeSection === "users"
-                        ? "Visualiza, edita o elimina los ayudantes y supervisores registrados."
-                        : activeSection === "plazas"
-                          ? "Administra las plazas disponibles para las ayudantías."
-                          : activeSection === "seguimiento"
-                            ? "Revisa las asignaciones, actividades y el progreso de las ayudantías."
-                            : activeSection === "evaluacion"
-                              ? "Gestiona las evaluaciones de los ayudantes y los beneficios asociados."
-                              : activeSection === "periodos"
-                                ? "Gestiona los periodos académicos del sistema."
-                                : `Esta funcionalidad estará disponible próximamente.`}
-                    </CardDescription>
-                  </>
-                )}
+                {activeSection !== "periodos" &&
+                  activeSection !== "periodo-evaluacion" && ( // Updated condition
+                    <>
+                      <CardTitle className="text-foreground">
+                        {
+                          [
+                            { id: "users", title: "Lista de Usuarios" },
+                            { id: "plazas", title: "Lista de Plazas" },
+                            { id: "seguimiento", title: "Seguimiento de Ayudantías" },
+                            { id: "evaluacion", title: "Evaluación y Beneficios" },
+                            { id: "periodos", title: "Periodos Académicos" },
+                            { id: "periodo-evaluacion", title: "Periodo de Evaluación" }, // Added section title
+                          ].find((s) => s.id === activeSection)?.title
+                        }
+                      </CardTitle>
+                      <CardDescription>
+                        {activeSection === "users"
+                          ? "Visualiza, edita o elimina los ayudantes y supervisores registrados."
+                          : activeSection === "plazas"
+                            ? "Administra las plazas disponibles para las ayudantías."
+                            : activeSection === "seguimiento"
+                              ? "Revisa las asignaciones, actividades y el progreso de las ayudantías."
+                              : activeSection === "evaluacion"
+                                ? "Gestiona las evaluaciones de los ayudantes y los beneficios asociados."
+                                : activeSection === "periodos"
+                                  ? "Gestiona los periodos académicos del sistema."
+                                  : activeSection === "periodo-evaluacion" // Added section description
+                                    ? "Gestiona los periodos de evaluación del sistema."
+                                    : `Esta funcionalidad estará disponible próximamente.`}
+                      </CardDescription>
+                    </>
+                  )}
               </CardHeader>
               <CardContent>
                 {activeSection === "users" ? (
@@ -2196,7 +2214,8 @@ export default function AdminDashboardPage() {
                 ) : (
                   (activeSection === "seguimiento" ||
                     activeSection === "evaluacion" ||
-                    activeSection === "periodos") && ( // Added "periodos" to the condition
+                    activeSection === "periodos" ||
+                    activeSection === "periodo-evaluacion") && ( // Updated condition
                     <div className="flex flex-col items-center justify-center py-12 gap-6">
                       {activeSection === "seguimiento" ? (
                         showAyudantiasView ? (
@@ -2373,6 +2392,26 @@ export default function AdminDashboardPage() {
                             Esta funcionalidad se desarrollará en las próximas iteraciones.
                           </p>
                         </div> // This is the section for 'periodos'
+                      ) : activeSection === "periodo-evaluacion" ? ( // Added placeholder for "periodo-evaluacion"
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <div className="mx-auto h-16 w-16 rounded-full bg-teal-100 flex items-center justify-center mb-6">
+                            <ClipboardCheck className="h-8 w-8 text-teal-600" />
+                          </div>
+                          <h3 className="text-xl font-semibold text-foreground mb-2">Periodo de Evaluación</h3>
+                          <p className="text-muted-foreground mb-8 text-center max-w-md">
+                            {evaluacionActiva
+                              ? "El periodo de evaluación está actualmente activo. Los ayudantes pueden ser evaluados."
+                              : "Active el periodo de evaluación para permitir que los supervisores evalúen a los ayudantes."}
+                          </p>
+                          <Button
+                            onClick={() => setEvaluacionActiva(!evaluacionActiva)}
+                            className={
+                              evaluacionActiva ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"
+                            }
+                          >
+                            {evaluacionActiva ? "Desactivar Periodo de Evaluación" : "Activar Periodo de Evaluación"}
+                          </Button>
+                        </div>
                       ) : (
                         <div className="space-y-6">
                           {/* Removed duplicate title and description, kept only button */}
