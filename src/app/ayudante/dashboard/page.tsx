@@ -1,7 +1,10 @@
 "use client"
 
-import { BookOpen, ArrowLeft, Mail, Award as IdCard, Building2, User, Briefcase } from "lucide-react"
+import { BookOpen, ArrowLeft, Mail, Award as IdCard, Building2, User, Briefcase, Edit2, Save, X } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -26,6 +29,10 @@ export default function AyudanteDashboardPage() {
   const [ayudantia, setAyudantia] = useState<AyudantiaData | null>(null)
   const [hasAyudantia, setHasAyudantia] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isEditingObjetivo, setIsEditingObjetivo] = useState(false)
+  const [objetivoText, setObjetivoText] = useState("")
+  const [isSavingObjetivo, setIsSavingObjetivo] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -51,6 +58,7 @@ export default function AyudanteDashboardPage() {
               const ayudantiaData = await ayudantiaResponse.json()
               setAyudantia(ayudantiaData)
               setHasAyudantia(true)
+              setObjetivoText(ayudantiaData.desc_objetivo || "")
             } else if (ayudantiaResponse.status === 404) {
               setHasAyudantia(false)
             }
@@ -72,6 +80,40 @@ export default function AyudanteDashboardPage() {
 
     fetchAyudanteData()
   }, [router])
+
+  const handleSaveObjetivo = async () => {
+    if (!ayudantia) return
+
+    setIsSavingObjetivo(true)
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ayudantias/${ayudantia.id}/objetivo`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ desc_objetivo: objetivoText }),
+      })
+
+      if (response.ok) {
+        setAyudantia({ ...ayudantia, desc_objetivo: objetivoText })
+        setIsEditingObjetivo(false)
+        setShowSuccessModal(true)
+      } else {
+        const error = await response.json()
+        alert(`❌ Error: ${error.error || "No se pudo actualizar el objetivo"}`)
+      }
+    } catch (error) {
+      console.error("Error saving objetivo:", error)
+      alert("❌ Error al guardar el objetivo")
+    } finally {
+      setIsSavingObjetivo(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setObjetivoText(ayudantia?.desc_objetivo || "")
+    setIsEditingObjetivo(false)
+  }
 
   const handleLogout = () => {
     localStorage.removeItem("ayudanteEmail")
@@ -165,12 +207,48 @@ export default function AyudanteDashboardPage() {
                     </div>
                   </div>
 
-                  {ayudantia.desc_objetivo && (
-                    <div className="pt-4 border-t">
-                      <p className="text-sm font-medium text-muted-foreground mb-2">Descripción del Objetivo</p>
-                      <p className="text-base text-foreground">{ayudantia.desc_objetivo}</p>
+                  <div className="pt-4 border-t">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-muted-foreground">Descripción del Objetivo</p>
+                      {!isEditingObjetivo && (
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditingObjetivo(true)} className="h-8">
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Editar
+                        </Button>
+                      )}
                     </div>
-                  )}
+
+                    {isEditingObjetivo ? (
+                      <div className="space-y-3">
+                        <Textarea
+                          value={objetivoText}
+                          onChange={(e) => setObjetivoText(e.target.value)}
+                          placeholder="Describe el objetivo de tu ayudantía..."
+                          className="min-h-[120px] resize-none"
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="outline" size="sm" onClick={handleCancelEdit} disabled={isSavingObjetivo}>
+                            <X className="h-4 w-4 mr-2" />
+                            Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveObjetivo} disabled={isSavingObjetivo}>
+                            <Save className="h-4 w-4 mr-2" />
+                            {isSavingObjetivo ? "Guardando..." : "Guardar"}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-muted/50 rounded-lg p-4">
+                        {ayudantia.desc_objetivo ? (
+                          <p className="text-base text-foreground whitespace-pre-wrap">{ayudantia.desc_objetivo}</p>
+                        ) : (
+                          <p className="text-muted-foreground italic">
+                            No hay objetivo definido. Haz clic en "Editar" para agregar uno.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-12">
@@ -188,6 +266,38 @@ export default function AyudanteDashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* Success Modal */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Objetivo actualizado correctamente</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
+              <svg
+                className="h-6 w-6 text-green-600 dark:text-green-400"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <p className="text-center text-muted-foreground">
+              La descripción del objetivo ha sido guardada exitosamente.
+            </p>
+          </div>
+          <div className="flex justify-center pb-2">
+            <Button onClick={() => setShowSuccessModal(false)} className="w-24">
+              OK
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
