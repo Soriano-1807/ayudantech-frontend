@@ -158,7 +158,12 @@ export default function SupervisorDashboard() {
               </AlertTitle>
               <AlertDescription className="text-green-700 dark:text-green-300 mt-2">
                 <p className="mb-3">El periodo de evaluación está activo. Puedes evaluar a los estudiantes ahora.</p>
-                <Button className="bg-green-600 hover:bg-green-700 text-white">Evaluar Estudiantes</Button>
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => router.push("/supervisor/evaluacion")}
+                >
+                  Evaluar Estudiantes
+                </Button>
               </AlertDescription>
             </Alert>
           )}
