@@ -40,7 +40,16 @@ export default function SupervisorLoginPage() {
       const data = await response.json()
 
       if (response.ok) {
-        router.push("/supervisor/dashboard")
+        const supervisorResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/supervisores/correo/${formData.email}`,
+        )
+        if (supervisorResponse.ok) {
+          const supervisorData = await supervisorResponse.json()
+          localStorage.setItem("supervisorData", JSON.stringify(supervisorData))
+          router.push("/supervisor/dashboard")
+        } else {
+          setError("Error al obtener datos del supervisor")
+        }
       } else {
         setError(data.error || "Error en el login")
       }
