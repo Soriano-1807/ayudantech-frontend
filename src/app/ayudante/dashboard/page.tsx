@@ -1,12 +1,14 @@
 "use client"
 
-import { BookOpen, ArrowLeft, Mail, Award as IdCard, Building2, User, Briefcase, Edit2, Save, X } from "lucide-react"
+import { BookOpen, ArrowLeft, Mail, Award as IdCard, Building2, User, Briefcase, Edit2, Save, X, Plus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface AyudanteData {
   cedula: number
@@ -30,6 +32,8 @@ interface PeriodoData {
 }
 
 export default function AyudanteDashboardPage() {
+  const router = useRouter() // <-- agrega esto
+
   const [ayudante, setAyudante] = useState<AyudanteData | null>(null)
   const [ayudantia, setAyudantia] = useState<AyudantiaData | null>(null)
   const [hasAyudantia, setHasAyudantia] = useState(false)
@@ -39,7 +43,41 @@ export default function AyudanteDashboardPage() {
   const [isSavingObjetivo, setIsSavingObjetivo] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [periodoActual, setPeriodoActual] = useState<string | null>(null)
-  const router = useRouter()
+  const [showActivityModal, setShowActivityModal] = useState(false)
+  const [actividadDesc, setActividadDesc] = useState("")
+  const [actividadFecha, setActividadFecha] = useState<string>(() => new Date().toISOString().slice(0, 10))
+  const [actividadEvidencia, setActividadEvidencia] = useState<File | null>(null)
+  const [actividadEvidenciaComentario, setActividadEvidenciaComentario] = useState<string>("")
+  const [actividadMensaje, setActividadMensaje] = useState<string | null>(null)
+  const [isSubmittingActividad, setIsSubmittingActividad] = useState(false)
+  const [showActivitySuccessModal, setShowActivitySuccessModal] = useState(false)
+
+  // NUEVO: listado de actividades y función para obtenerlas
+  const [actividades, setActividades] = useState<any[]>([])
+
+  const fetchActividades = async () => {
+    if (!ayudantia) {
+      setActividades([])
+      return
+    }
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/actividades/ayudantia/${ayudantia.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        setActividades(data)
+      } else {
+        setActividades([])
+      }
+    } catch (err) {
+      console.error("Error fetching actividades:", err)
+      setActividades([])
+    }
+  }
+
+  // Llama a fetchActividades cuando se cargue la ayudantía
+  useEffect(() => {
+    if (ayudantia) fetchActividades()
+  }, [ayudantia])
 
   useEffect(() => {
     const fetchPeriodoActual = async () => {
@@ -140,6 +178,124 @@ export default function AyudanteDashboardPage() {
   const handleLogout = () => {
     localStorage.removeItem("ayudanteEmail")
     router.push("/ayudante/login")
+  }
+
+  const getCurrentUserFromSession = () => {
+    try {
+      if (typeof window === "undefined") return null
+      return JSON.parse(localStorage.getItem("user") || "null")
+    } catch (err) {
+      console.error("getCurrentUserFromSession parse error:", err)
+      return null
+    }
+  }
+
+  const handleFileChangeActividad = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    setActividadEvidencia(file)
+  }
+
+  // helper para leer archivo como DataURL
+  const readFileAsDataURL = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = (err) => reject(err)
+      reader.readAsDataURL(file)
+    })
+
+  const handleCreateActividad = async () => {
+    // require ayudantía (backend necesita id_ayudantia)
+    if (!ayudantia) {
+      setActividadMensaje("❌ No tienes una ayudantía asignada")
+      console.error("No ayudantia available - ayudantia:", ayudantia)
+      return
+    }
+
+    if (!actividadDesc || !actividadDesc.trim()) {
+      setActividadMensaje("❌ La descripción es obligatoria")
+      return
+    }
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    if (!apiUrl) {
+      setActividadMensaje("❌ URL del backend no configurada")
+      console.error("NEXT_PUBLIC_API_URL is undefined")
+      return
+    }
+
+    setIsSubmittingActividad(true)
+    setActividadMensaje(null)
+
+    try {
+      // preparar evidencia: si hay archivo lo convertimos a base64, si no usamos el comentario (si existe)
+      let evidenciaPayload: string | null = null
+      if (actividadEvidencia) {
+        try {
+          evidenciaPayload = await readFileAsDataURL(actividadEvidencia)
+        } catch (err) {
+          console.error("Error leyendo archivo de evidencia:", err)
+          setActividadMensaje("❌ Error al leer la evidencia")
+          setIsSubmittingActividad(false)
+          return
+        }
+      } else if (actividadEvidenciaComentario && actividadEvidenciaComentario.trim()) {
+        evidenciaPayload = actividadEvidenciaComentario.trim()
+      }
+
+      const periodo = periodoActual || getCurrentUserFromSession()?.periodo || getCurrentUserFromSession()?.periodoActual || ""
+      const fecha = actividadFecha // frontend incluye fecha (backend también genera si lo prefiere)
+
+      const payload: any = {
+        id_ayudantia: ayudantia.id,
+        descripcion: actividadDesc,
+      }
+      if (evidenciaPayload) payload.evidencia = evidenciaPayload
+      if (fecha) payload.fecha = fecha
+      if (periodo) payload.periodo = periodo
+
+      console.debug("Enviando actividad (JSON) ->", {
+        url: `${apiUrl}/actividades`,
+        payload
+      })
+
+      const res = await fetch(`${apiUrl}/actividades`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      if (res.ok) {
+        // mostrar confirmación clara al usuario
+        setActividadMensaje(null)
+        setActividadDesc("")
+        setActividadEvidencia(null)
+        setActividadEvidenciaComentario("")
+        setActividadFecha(new Date().toISOString().slice(0, 10))
+        setShowActivityModal(false)
+        setShowActivitySuccessModal(true) // <-- abre modal de confirmación
+        // actualizar lista si existe
+        if (typeof (global as any).fetchActividades === "function") (global as any).fetchActividades()
+      } else {
+        let errObj = null
+        try {
+          errObj = await res.json()
+        } catch (jsonErr) {
+          const txt = await res.text().catch(() => "")
+          console.error("Actividad create response (text):", txt)
+          setActividadMensaje(`❌ Error: ${txt || "Respuesta inesperada del servidor"}`)
+          return
+        }
+        console.error("Actividad create response (json):", errObj)
+        const msg = errObj?.error || errObj?.message || "Error al crear la actividad"
+        setActividadMensaje(`❌ ${msg}`)
+      }
+    } catch (e) {
+      console.error("Error al crear actividad:", e)
+      setActividadMensaje("❌ Error de conexión al crear la actividad")
+    } finally {
+      setIsSubmittingActividad(false)
+    }
   }
 
   if (isLoading) {
@@ -291,6 +447,45 @@ export default function AyudanteDashboardPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* NUEVO: Registro de Actividades */}
+          <Card>
+            <CardHeader className="flex items-center justify-between">
+              <div>
+                <CardTitle>Actividades realizadas</CardTitle>
+                <p className="text-sm text-muted-foreground">Resumen de actividades registradas por ti</p>
+              </div>
+              <div>
+                <Button onClick={() => setShowActivityModal(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Añadir
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {actividades.length === 0 ? (
+                <div className="text-muted-foreground">No hay actividades registradas todavía.</div>
+              ) : (
+                <ul className="space-y-3">
+                  {actividades.map((a) => (
+                    <li key={a.id} className="flex items-start justify-between p-3 bg-muted/30 rounded-md">
+                      <div>
+                        <div className="text-sm text-muted-foreground">{new Date(a.fecha).toLocaleString()}</div>
+                        <div className="font-medium text-foreground">{a.descripcion}</div>
+                        {a.evidencia && (
+                          <div className="text-xs text-muted-foreground mt-1 truncate max-w-lg">
+                            Evidencia: {String(a.evidencia).slice(0, 120)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">{a.periodo}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
         </div>
       </div>
 
@@ -322,6 +517,116 @@ export default function AyudanteDashboardPage() {
             <Button onClick={() => setShowSuccessModal(false)} className="w-24">
               OK
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de crear actividad */}
+      <Dialog open={showActivityModal} onOpenChange={(open) => {
+        setShowActivityModal(open)
+        if (!open) {
+          setActividadMensaje(null)
+          setActividadDesc("")
+          setActividadEvidencia(null)
+          setActividadEvidenciaComentario("")
+          setActividadFecha(new Date().toISOString().slice(0,10))
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Agregar Actividad</DialogTitle>
+          </DialogHeader>
+
+          {actividadMensaje && (
+            <div className={`p-3 rounded-md mb-3 ${actividadMensaje.startsWith("✅") ? "bg-green-100 text-green-900" : "bg-red-100 text-red-900"}`}>
+              {actividadMensaje}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <Textarea
+              placeholder="Descripción de la actividad"
+              value={actividadDesc}
+              onChange={(e) => setActividadDesc(e.target.value)}
+              rows={4}
+              className="min-h-[100px]"
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Fecha</Label>
+                <Input type="date" value={actividadFecha} onChange={(e) => setActividadFecha(e.target.value)} />
+              </div>
+              <div>
+                <Label>Periodo (auto)</Label>
+                <Input value={periodoActual || ""} readOnly />
+              </div>
+            </div>
+
+            <div>
+              <Label>Evidencia (archivo)</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="actividad-evidencia-file"
+                  type="file"
+                  accept=".pdf,.jpg,.png,.jpeg"
+                  onChange={handleFileChangeActividad}
+                  className="hidden"
+                />
+                <label htmlFor="actividad-evidencia-file" className="inline-flex items-center px-3 py-2 rounded-md bg-muted/20 cursor-pointer text-sm">
+                  <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Seleccionar archivo
+                </label>
+                <span className="text-sm text-muted-foreground">
+                  {actividadEvidencia ? actividadEvidencia.name : "Sin archivos seleccionados"}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Adjunta un archivo (opcional) o escribe un comentario abajo.
+              </p>
+            </div>
+
+            <div>
+              <Label>Comentario de evidencia (opcional)</Label>
+              <Input
+                placeholder="Describe la evidencia o agrega un enlace (opcional)"
+                value={actividadEvidenciaComentario}
+                onChange={(e) => setActividadEvidenciaComentario(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowActivityModal(false)}>Cancelar</Button>
+              <Button onClick={async () => {
+                await handleCreateActividad()
+                // actualizar lista si se creó correctamente
+                setTimeout(fetchActividades, 500)
+              }} disabled={isSubmittingActividad || !actividadDesc}>
+                {isSubmittingActividad ? "Guardando..." : "Crear Actividad"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmación de actividad */}
+      <Dialog open={showActivitySuccessModal} onOpenChange={setShowActivitySuccessModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Actividad registrada</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
+              <svg className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M5 13l4 4L19 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+              </svg>
+            </div>
+            <p className="text-center text-muted-foreground">
+              ✅ La actividad fue registrada correctamente. Tu supervisor podrá validarla.
+            </p>
+          </div>
+          <div className="flex justify-center pb-2">
+            <Button onClick={() => setShowActivitySuccessModal(false)} className="w-24">OK</Button>
           </div>
         </DialogContent>
       </Dialog>
