@@ -20,6 +20,34 @@ export default function SupervisorLoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
+  const handleLogin = async (email: string, contraseña: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/supervisores/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ correo: email, contraseña }),
+      })
+      if (!res.ok) {
+        // mostrar error...
+        return
+      }
+
+      // opcional: obtener datos completos del supervisor
+      const supRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/supervisores/correo/${encodeURIComponent(email)}`)
+      const sup = supRes.ok ? await supRes.json() : null
+
+      // guardar sesión mínima que usa el dashboard
+      localStorage.setItem("supervisorEmail", email)
+      if (sup) localStorage.setItem("supervisor", JSON.stringify(sup))
+
+      // redirigir al dashboard
+      router.push("/supervisor/dashboard")
+    } catch (err) {
+      console.error(err)
+      // manejar error
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -41,10 +69,14 @@ export default function SupervisorLoginPage() {
 
       if (response.ok) {
         const supervisorResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/supervisores/correo/${formData.email}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/supervisores/correo/${encodeURIComponent(formData.email)}`,
         )
         if (supervisorResponse.ok) {
           const supervisorData = await supervisorResponse.json()
+          // Guardar las claves que usa el dashboard
+          localStorage.setItem("supervisorEmail", formData.email)
+          localStorage.setItem("supervisor", JSON.stringify(supervisorData))
+          // mantener la clave anterior por compatibilidad
           localStorage.setItem("supervisorData", JSON.stringify(supervisorData))
           router.push("/supervisor/dashboard")
         } else {
