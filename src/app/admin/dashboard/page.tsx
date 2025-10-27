@@ -56,6 +56,14 @@ interface Actividad {
     descripcion: string;
     evidencia?: string | null;
 }
+
+// AGREGADO: Interface para la nueva data
+interface AyudantiaAprobada {
+  nombre_ayudante: string;
+  nombre_supervisor: string;
+  plaza: string;
+}
+
 const createAssistantSchema = z.object({
   cedula: z.string().min(1, "La cédula es requerida").regex(/^\d+$/, "La cédula debe contener solo números"),
   nombre: z.string().min(1, "El nombre es requerido"),
@@ -201,6 +209,10 @@ export default function AdminDashboardPage() {
   const [showActivitiesModal, setShowActivitiesModal] = useState(false);
   const [selectedAyudantia, setSelectedAyudantia] = useState<Ayudantia | null>(null);
   const [loadingActivities, setLoadingActivities] = useState(false);
+
+  // AGREGADO: Estados para la sección de Evaluación
+  const [ayudantiasAprobadas, setAyudantiasAprobadas] = useState<AyudantiaAprobada[]>([]);
+  const [loadingAprobadas, setLoadingAprobadas] = useState(false);
 
 
   const [showConfirmStatusChange, setShowConfirmStatusChange] = useState(false)
@@ -575,38 +587,38 @@ export default function AdminDashboardPage() {
     setShowDeletePlazaConfirmModal(true)
   }
 
-  // MODIFICADO: Lógica para manejar error de plaza en uso
   const confirmDeletePlaza = async () => {
     if (!deletingPlaza) return
     try {
-      const res = await fetch(`${API_BASE_URL}/plazas/${deletingPlaza.nombre}`, { method: "DELETE" })
+      const res = await fetch(`${API_BASE_URL}/plazas/${deletingPlaza.nombre}`, { method: "DELETE" });
       
       if (res.ok) {
-        setPlazaPageMensaje("✅ Plaza eliminada correctamente")
-        fetchPlazas()
-        setTimeout(() => setPlazaPageMensaje(null), 3000)
+        setPlazaPageMensaje("✅ Plaza eliminada correctamente");
+        fetchPlazas();
+        setTimeout(() => setPlazaPageMensaje(null), 3000);
       } else {
-        const errorData = await res.json()
+        const errorData = await res.json();
         const errorMessage = (errorData.error || errorData.message || "Error desconocido.").toLowerCase();
   
+        // Si el error del backend indica que la plaza está en uso
         if (errorMessage.includes("asignada") || errorMessage.includes("ayudantías")) {
           setErrorDialogMessage(
             `La plaza "${deletingPlaza.nombre}" no se puede eliminar porque tiene ayudantías asignadas. Primero debe reasignar o eliminar esas ayudantías.`
-          )
+          );
         } else {
-          setErrorDialogMessage(`Error al eliminar la plaza: ${errorMessage}`)
+          setErrorDialogMessage(`Error al eliminar la plaza: ${errorMessage}`);
         }
-        setShowErrorDialog(true)
+        setShowErrorDialog(true);
       }
     } catch(err) {
         setErrorDialogMessage("Error de conexión al eliminar la plaza. Por favor, intente de nuevo.");
         setShowErrorDialog(true);
     } 
     finally {
-      setShowDeletePlazaConfirmModal(false)
-      setDeletingPlaza(null)
+      setShowDeletePlazaConfirmModal(false);
+      setDeletingPlaza(null);
     }
-  }
+  };
 
   const cancelDeletePlaza = () => {
     setShowDeletePlazaConfirmModal(false)
@@ -689,12 +701,41 @@ export default function AdminDashboardPage() {
       }
   };
 
-
   const handleShowActivitiesForAyudantia = (ayudantia: Ayudantia) => {
       setSelectedAyudantia(ayudantia);
       fetchActivitiesForAyudantia(ayudantia.id);
       setShowActivitiesModal(true);
   };
+
+  // AGREGADO: Función para obtener ayudantías aprobadas
+  const fetchAprobadas = async () => {
+    setLoadingAprobadas(true);
+    try {
+      if (!API_BASE_URL) {
+        console.error("API URL not configured");
+        return;
+      }
+      const response = await fetch(`${API_BASE_URL}/aprobados/detalles`);
+      if (response.ok) {
+        const data = await response.json();
+        setAyudantiasAprobadas(data);
+      } else {
+        setAyudantiasAprobadas([]);
+      }
+    } catch (error) {
+      console.error("Error fetching aprobadas:", error);
+      setAyudantiasAprobadas([]);
+    } finally {
+      setLoadingAprobadas(false);
+    }
+  };
+
+  // AGREGADO: useEffect para llamar a fetchAprobadas
+  useEffect(() => {
+    if (activeSection === 'evaluacion') {
+      fetchAprobadas();
+    }
+  }, [activeSection]);
 
   useEffect(() => {
     if (activeSection === "periodos") {
@@ -1871,9 +1912,9 @@ export default function AdminDashboardPage() {
             <div className="text-sm text-muted-foreground">{adminEmail}</div>
             
             {/* MODIFICADO: Botón de logout estandarizado */}
-            <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
+            <Button variant="outline" size="sm" onClick={handleLogout} className="flex items-center space-x-2 bg-transparent">
               <LogOut className="h-4 w-4" />
-              Cerrar Sesión
+              <span>Cerrar Sesión</span>
             </Button>
             
           </div>
@@ -2360,7 +2401,7 @@ export default function AdminDashboardPage() {
                     activeSection === "evaluacion" ||
                     activeSection === "periodos" ||
                     activeSection === "periodo-evaluacion") && (
-                    <div className="flex flex-col items-center justify-center py-12 gap-6">
+                    <div className="flex flex-col items-center justify-center py-12 gap-6 w-full">
                       {activeSection === "seguimiento" ? (
                         showAyudantiasView ? (
                           <div className="w-full">
@@ -2554,51 +2595,40 @@ export default function AdminDashboardPage() {
                             </Card>
                           </div>
                         )
-                      ) : activeSection === "evaluacion" ? ( // This is the placeholder for the 'evaluacion' section
-                        <div>
-                          <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                            {
-                              [
-                                {
-                                  id: "users",
-                                  title: "Gestión de Usuarios",
-                                  description: "Administrar estudiantes, supervisores y coordinadores",
-                                  icon: <Users className="h-4 w-4" />,
-                                  color: "bg-blue-500",
-                                  stats: "156 usuarios activos",
-                                },
-                                {
-                                  id: "plazas",
-                                  title: "Gestión de Plazas de Ayudantía",
-                                  description: "Crear y administrar plazas disponibles",
-                                  icon: <Building2 className="h-4 w-4" />,
-                                  color: "bg-green-500",
-                                  stats: "24 plazas activas",
-                                },
-                                {
-                                  id: "seguimiento",
-                                  title: "Seguimiento de Ayudantías",
-                                  description: "Monitorear el progreso y actividades",
-                                  icon: <Activity className="h-4 w-4" />,
-                                  color: "bg-purple-500",
-                                  stats: "18 ayudantías en curso",
-                                },
-                                {
-                                  id: "evaluacion",
-                                  title: "Evaluación y Beneficios",
-                                  description: "Gestionar evaluaciones y asignar beneficios",
-                                  icon: <Award className="h-4 w-4" />,
-                                  color: "bg-orange-500",
-                                  stats: "12 evaluaciones pendientes",
-                                },
-                              ].find((s) => s.id === activeSection)?.icon
-                            }
-                          </div>
-                          <h3 className="text-lg font-medium text-foreground mb-2">Próximamente</h3>
-                          <p className="text-muted-foreground mb-4">
-                            Esta funcionalidad se desarrollará en las próximas iteraciones.
-                          </p>
-                        </div> // This is the section for 'periodos'
+                      ) : activeSection === "evaluacion" ? (
+                        <div className="w-full">
+                          {loadingAprobadas ? (
+                            <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                <span className="ml-3 text-muted-foreground">Cargando ayudantías aprobadas...</span>
+                            </div>
+                          ) : ayudantiasAprobadas.length === 0 ? (
+                            <div className="text-center text-muted-foreground py-8">
+                              No hay ayudantías aprobadas para mostrar en este momento.
+                            </div>
+                          ) : (
+                            <div className="rounded-md border">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Estudiante</TableHead>
+                                    <TableHead>Supervisor</TableHead>
+                                    <TableHead>Plaza</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {ayudantiasAprobadas.map((item, index) => (
+                                    <TableRow key={index}>
+                                      <TableCell className="font-medium">{item.nombre_ayudante}</TableCell>
+                                      <TableCell>{item.nombre_supervisor}</TableCell>
+                                      <TableCell>{item.plaza}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </div>
                       ) : activeSection === "periodo-evaluacion" ? ( // Added placeholder for "periodo-evaluacion"
                         <div className="flex flex-col items-center justify-center py-12">
                           <div className="mx-auto h-16 w-16 rounded-full bg-teal-100 flex items-center justify-center mb-6">
