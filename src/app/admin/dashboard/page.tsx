@@ -1,3 +1,4 @@
+
 "use client"
 
 import type React from "react"
@@ -47,6 +48,8 @@ import {
   Check,
   ClipboardCheck,
   Eye,
+  Clock,
+  CheckCircle2
 } from "lucide-react"
 
 interface Actividad {
@@ -57,7 +60,6 @@ interface Actividad {
     evidencia?: string | null;
 }
 
-// AGREGADO: Interface para la nueva data
 interface AyudantiaAprobada {
   nombre_ayudante: string;
   nombre_supervisor: string;
@@ -149,13 +151,15 @@ interface Plaza {
   nombre: string
 }
 
+// MODIFICADO: Se añade el campo opcional 'aprobado'
 interface Ayudantia {
   id: number
   cedula_ayudante: number
-  tipo_ayudante: string // Updated field name
+  tipo_ayudante: string 
   cedula_supervisor: number
   plaza: string
-  desc_objetivo: string // Added field
+  desc_objetivo: string
+  aprobado?: boolean; // <-- AÑADIDO
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL // Define API_BASE_URL
@@ -210,7 +214,7 @@ export default function AdminDashboardPage() {
   const [selectedAyudantia, setSelectedAyudantia] = useState<Ayudantia | null>(null);
   const [loadingActivities, setLoadingActivities] = useState(false);
 
-  // AGREGADO: Estados para la sección de Evaluación
+  // Estados para la sección de Evaluación
   const [ayudantiasAprobadas, setAyudantiasAprobadas] = useState<AyudantiaAprobada[]>([]);
   const [loadingAprobadas, setLoadingAprobadas] = useState(false);
 
@@ -707,7 +711,7 @@ export default function AdminDashboardPage() {
       setShowActivitiesModal(true);
   };
 
-  // AGREGADO: Función para obtener ayudantías aprobadas
+  // Función para obtener ayudantías aprobadas
   const fetchAprobadas = async () => {
     setLoadingAprobadas(true);
     try {
@@ -715,7 +719,7 @@ export default function AdminDashboardPage() {
         console.error("API URL not configured");
         return;
       }
-      const response = await fetch(`${API_BASE_URL}/aprobados/detalles`);
+      const response = await fetch(`${API_BASE_URL}/aprobado/detalles`);
       if (response.ok) {
         const data = await response.json();
         setAyudantiasAprobadas(data);
@@ -730,7 +734,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // AGREGADO: useEffect para llamar a fetchAprobadas
+  // useEffect para llamar a fetchAprobadas
   useEffect(() => {
     if (activeSection === 'evaluacion') {
       fetchAprobadas();
@@ -2064,9 +2068,9 @@ export default function AdminDashboardPage() {
                             { id: "users", title: "Lista de Usuarios" },
                             { id: "plazas", title: "Lista de Plazas" },
                             { id: "seguimiento", title: "Seguimiento de Ayudantías" },
-                            { id: "evaluacion", title: "Evaluación y Beneficios" },
+                            { id: "evaluacion", title: "Ayudantías Aprobadas" }, // MODIFICADO
                             { id: "periodos", title: "Periodos Académicos" },
-                            { id: "periodo-evaluacion", title: "Periodo de Evaluación" }, // Added section title
+                            { id: "periodo-evaluacion", title: "Periodo de Evaluación" },
                           ].find((s) => s.id === activeSection)?.title
                         }
                       </CardTitle>
@@ -2078,10 +2082,10 @@ export default function AdminDashboardPage() {
                             : activeSection === "seguimiento"
                               ? "Revisa las asignaciones, actividades y el progreso de las ayudantías."
                               : activeSection === "evaluacion"
-                                ? "Gestiona las evaluaciones de los ayudantes y los beneficios asociados."
+                                ? "Visualiza la lista de estudiantes cuyas ayudantías han sido formalmente aprobadas." // MODIFICADO
                                 : activeSection === "periodos"
                                   ? "Gestiona los periodos académicos del sistema."
-                                  : activeSection === "periodo-evaluacion" // Added section description
+                                  : activeSection === "periodo-evaluacion" 
                                     ? "Gestiona los periodos de evaluación del sistema."
                                     : `Esta funcionalidad estará disponible próximamente.`}
                       </CardDescription>
@@ -2405,7 +2409,6 @@ export default function AdminDashboardPage() {
                       {activeSection === "seguimiento" ? (
                         showAyudantiasView ? (
                           <div className="w-full">
-                            {/* Removed duplicate title and description, kept only button */}
                             <div className="flex items-center justify-between mb-6">
                               <div className="flex items-center gap-4">
                                 <Button variant="outline" size="sm" onClick={handleBackFromAyudantias}>
@@ -2414,33 +2417,28 @@ export default function AdminDashboardPage() {
                                 </Button>
                                 <h2 className="text-2xl font-bold">Gestión de Ayudantías</h2>
                               </div>
-
-                              <div className="mb-4">
+                              <div className="flex items-center gap-4">
                                 <div className="relative">
                                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                   <Input
-                                    placeholder="Buscar por cédula de ayudante o supervisor..."
+                                    placeholder="Buscar..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-10"
+                                    className="pl-10 w-64"
                                   />
                                 </div>
-                              </div>
 
-                              <Button onClick={handleCreateAyudantia}>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Crear Ayudantía
-                              </Button>
+                                <Button onClick={handleCreateAyudantia}>
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Crear Ayudantía
+                                </Button>
+                              </div>
                             </div>
 
                             <Card>
-                              <CardHeader>
-                                <CardTitle>Lista de Ayudantías</CardTitle>
-                                <CardDescription>Visualiza y gestiona todas las ayudantías activas</CardDescription>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="overflow-x-auto -mx-6 px-6">
-                                  <Table className="min-w-[800px]">
+                              <CardContent className="pt-6">
+                                <div className="rounded-md border">
+                                  <Table>
                                     <TableHeader>
                                       <TableRow>
                                         <TableHead>ID</TableHead>
@@ -2457,14 +2455,15 @@ export default function AdminDashboardPage() {
                                         const search = searchTerm.toLowerCase()
                                         return (
                                           ayudantia.cedula_ayudante.toString().includes(search) ||
-                                          ayudantia.cedula_supervisor.toString().includes(search)
+                                          ayudantia.cedula_supervisor.toString().includes(search) ||
+                                          ayudantia.plaza.toLowerCase().includes(search)
                                         )
                                       }).length === 0 ? (
                                         <TableRow>
                                           <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                                             {searchTerm
                                               ? "No se encontraron ayudantías que coincidan con la búsqueda."
-                                              : "No hay ayudantías registradas. Crea una nueva ayudantía para comenzar."}
+                                              : "No hay ayudantías registradas."}
                                           </TableCell>
                                         </TableRow>
                                       ) : (
@@ -2474,7 +2473,8 @@ export default function AdminDashboardPage() {
                                             const search = searchTerm.toLowerCase()
                                             return (
                                               ayudantia.cedula_ayudante.toString().includes(search) ||
-                                              ayudantia.cedula_supervisor.toString().includes(search)
+                                              ayudantia.cedula_supervisor.toString().includes(search) ||
+                                              ayudantia.plaza.toLowerCase().includes(search)
                                             )
                                           })
                                           .map((ayudantia) => (
@@ -2487,8 +2487,9 @@ export default function AdminDashboardPage() {
                                               <TableCell className="text-right">
                                                 <Button
                                                   variant="ghost"
-                                                  size="sm"
+                                                  size="icon"
                                                   onClick={() => handleDeleteAyudantia(ayudantia)}
+                                                  title="Eliminar ayudantía"
                                                 >
                                                   <Trash2 className="h-4 w-4" />
                                                 </Button>
@@ -2600,7 +2601,7 @@ export default function AdminDashboardPage() {
                           {loadingAprobadas ? (
                             <div className="flex items-center justify-center py-8">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                                <span className="ml-3 text-muted-foreground">Cargando ayudantías aprobadas...</span>
+                                <span className="ml-3 text-muted-foreground">Cargando beneficiarios...</span>
                             </div>
                           ) : ayudantiasAprobadas.length === 0 ? (
                             <div className="text-center text-muted-foreground py-8">
@@ -2614,6 +2615,7 @@ export default function AdminDashboardPage() {
                                     <TableHead>Estudiante</TableHead>
                                     <TableHead>Supervisor</TableHead>
                                     <TableHead>Plaza</TableHead>
+                                    <TableHead>Estado</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -2622,6 +2624,12 @@ export default function AdminDashboardPage() {
                                       <TableCell className="font-medium">{item.nombre_ayudante}</TableCell>
                                       <TableCell>{item.nombre_supervisor}</TableCell>
                                       <TableCell>{item.plaza}</TableCell>
+                                      <TableCell>
+                                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-green-700 bg-green-100">
+                                          <CheckCircle2 className="h-3 w-3" />
+                                          Aprobado
+                                        </span>
+                                      </TableCell>
                                     </TableRow>
                                   ))}
                                 </TableBody>
