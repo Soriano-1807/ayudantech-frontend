@@ -1,4 +1,3 @@
-
 "use client"
 
 import type React from "react"
@@ -48,22 +47,25 @@ import {
   Check,
   ClipboardCheck,
   Eye,
-  Clock,
-  CheckCircle2
+  CheckCircle2,
 } from "lucide-react"
 
 interface Actividad {
-    id: number;
-    id_ayudantia: number;
-    fecha: string;
-    descripcion: string;
-    evidencia?: string | null;
+  id: number
+  id_ayudantia: number
+  fecha: string
+  descripcion: string
+  evidencia?: string | null
 }
 
 interface AyudantiaAprobada {
-  nombre_ayudante: string;
-  nombre_supervisor: string;
-  plaza: string;
+  id: number
+  id_ayudantia: number
+  periodo: string
+  nombreAyudante: string
+  nombreSupervisor: string
+  plaza: string
+  estado: string
 }
 
 const createAssistantSchema = z.object({
@@ -155,11 +157,11 @@ interface Plaza {
 interface Ayudantia {
   id: number
   cedula_ayudante: number
-  tipo_ayudante: string 
+  tipo_ayudante: string
   cedula_supervisor: number
   plaza: string
   desc_objetivo: string
-  aprobado?: boolean; // <-- AÑADIDO
+  aprobado?: boolean // <-- AÑADIDO
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL // Define API_BASE_URL
@@ -207,17 +209,16 @@ export default function AdminDashboardPage() {
   })
 
   // Nuevos estados para la funcionalidad "Ver Actividades"
-  const [showActivitiesView, setShowActivitiesView] = useState(false);
-  const [allAyudantias, setAllAyudantias] = useState<Ayudantia[]>([]);
-  const [selectedAyudantiaActivities, setSelectedAyudantiaActivities] = useState<Actividad[]>([]);
-  const [showActivitiesModal, setShowActivitiesModal] = useState(false);
-  const [selectedAyudantia, setSelectedAyudantia] = useState<Ayudantia | null>(null);
-  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [showActivitiesView, setShowActivitiesView] = useState(false)
+  const [allAyudantias, setAllAyudantias] = useState<Ayudantia[]>([])
+  const [selectedAyudantiaActivities, setSelectedAyudantiaActivities] = useState<Actividad[]>([])
+  const [showActivitiesModal, setShowActivitiesModal] = useState(false)
+  const [selectedAyudantia, setSelectedAyudantia] = useState<Ayudantia | null>(null)
+  const [loadingActivities, setLoadingActivities] = useState(false)
 
   // Estados para la sección de Evaluación
-  const [ayudantiasAprobadas, setAyudantiasAprobadas] = useState<AyudantiaAprobada[]>([]);
-  const [loadingAprobadas, setLoadingAprobadas] = useState(false);
-
+  const [ayudantiasAprobadas, setAyudantiasAprobadas] = useState<AyudantiaAprobada[]>([])
+  const [loadingAprobadas, setLoadingAprobadas] = useState(false)
 
   const [showConfirmStatusChange, setShowConfirmStatusChange] = useState(false)
   const [periodoToChange, setPeriodoToChange] = useState<{ nombre: string; currentStatus: boolean } | null>(null)
@@ -594,35 +595,34 @@ export default function AdminDashboardPage() {
   const confirmDeletePlaza = async () => {
     if (!deletingPlaza) return
     try {
-      const res = await fetch(`${API_BASE_URL}/plazas/${deletingPlaza.nombre}`, { method: "DELETE" });
-      
+      const res = await fetch(`${API_BASE_URL}/plazas/${deletingPlaza.nombre}`, { method: "DELETE" })
+
       if (res.ok) {
-        setPlazaPageMensaje("✅ Plaza eliminada correctamente");
-        fetchPlazas();
-        setTimeout(() => setPlazaPageMensaje(null), 3000);
+        setPlazaPageMensaje("✅ Plaza eliminada correctamente")
+        fetchPlazas()
+        setTimeout(() => setPlazaPageMensaje(null), 3000)
       } else {
-        const errorData = await res.json();
-        const errorMessage = (errorData.error || errorData.message || "Error desconocido.").toLowerCase();
-  
+        const errorData = await res.json()
+        const errorMessage = (errorData.error || errorData.message || "Error desconocido.").toLowerCase()
+
         // Si el error del backend indica que la plaza está en uso
         if (errorMessage.includes("asignada") || errorMessage.includes("ayudantías")) {
           setErrorDialogMessage(
-            `La plaza "${deletingPlaza.nombre}" no se puede eliminar porque tiene ayudantías asignadas. Primero debe reasignar o eliminar esas ayudantías.`
-          );
+            `La plaza "${deletingPlaza.nombre}" no se puede eliminar porque tiene ayudantías asignadas. Primero debe reasignar o eliminar esas ayudantías.`,
+          )
         } else {
-          setErrorDialogMessage(`Error al eliminar la plaza: ${errorMessage}`);
+          setErrorDialogMessage(`Error al eliminar la plaza: ${errorMessage}`)
         }
-        setShowErrorDialog(true);
+        setShowErrorDialog(true)
       }
-    } catch(err) {
-        setErrorDialogMessage("Error de conexión al eliminar la plaza. Por favor, intente de nuevo.");
-        setShowErrorDialog(true);
-    } 
-    finally {
-      setShowDeletePlazaConfirmModal(false);
-      setDeletingPlaza(null);
+    } catch (err) {
+      setErrorDialogMessage("Error de conexión al eliminar la plaza. Por favor, intente de nuevo.")
+      setShowErrorDialog(true)
+    } finally {
+      setShowDeletePlazaConfirmModal(false)
+      setDeletingPlaza(null)
     }
-  };
+  }
 
   const cancelDeletePlaza = () => {
     setShowDeletePlazaConfirmModal(false)
@@ -664,82 +664,124 @@ export default function AdminDashboardPage() {
       setLoadingPeriodos(false)
     }
   }
-  
+
   // Nuevas funciones para la funcionalidad "Ver Actividades"
   const fetchAllAyudantias = async () => {
-      try {
-          if (!API_BASE_URL) {
-            console.error("API URL not configured")
-            return
-          }
-          const response = await fetch(`${API_BASE_URL}/ayudantias`);
-          if (response.ok) {
-              const data = await response.json();
-              setAllAyudantias(data);
-          }
-      } catch (error) {
-          console.error("Error fetching all ayudantias:", error);
+    try {
+      if (!API_BASE_URL) {
+        console.error("API URL not configured")
+        return
       }
-  };
+      const response = await fetch(`${API_BASE_URL}/ayudantias`)
+      if (response.ok) {
+        const data = await response.json()
+        setAllAyudantias(data)
+      }
+    } catch (error) {
+      console.error("Error fetching all ayudantias:", error)
+    }
+  }
 
   const fetchActivitiesForAyudantia = async (idAyudantia: number) => {
-      setLoadingActivities(true);
-      try {
-          if (!API_BASE_URL) {
-            console.error("API URL not configured")
-            setSelectedAyudantiaActivities([]);
-            return;
-          }
-          const response = await fetch(`${API_BASE_URL}/actividades/ayudantia/${idAyudantia}`);
-          if (response.ok) {
-              const data = await response.json();
-              setSelectedAyudantiaActivities(data);
-          } else {
-              setSelectedAyudantiaActivities([]);
-          }
-      } catch (error) {
-          console.error("Error fetching activities:", error);
-          setSelectedAyudantiaActivities([]);
-      } finally {
-          setLoadingActivities(false);
+    setLoadingActivities(true)
+    try {
+      if (!API_BASE_URL) {
+        console.error("API URL not configured")
+        setSelectedAyudantiaActivities([])
+        return
       }
-  };
+      const response = await fetch(`${API_BASE_URL}/actividades/ayudantia/${idAyudantia}/actual`)
+      if (response.ok) {
+        const data = await response.json()
+        setSelectedAyudantiaActivities(data.actividades || [])
+      } else {
+        setSelectedAyudantiaActivities([])
+      }
+    } catch (error) {
+      console.error("Error fetching activities:", error)
+      setSelectedAyudantiaActivities([])
+    } finally {
+      setLoadingActivities(false)
+    }
+  }
 
   const handleShowActivitiesForAyudantia = (ayudantia: Ayudantia) => {
-      setSelectedAyudantia(ayudantia);
-      fetchActivitiesForAyudantia(ayudantia.id);
-      setShowActivitiesModal(true);
-  };
+    setSelectedAyudantia(ayudantia)
+    fetchActivitiesForAyudantia(ayudantia.id)
+    setShowActivitiesModal(true)
+  }
 
   // Función para obtener ayudantías aprobadas
   const fetchAprobadas = async () => {
-    setLoadingAprobadas(true);
+    setLoadingAprobadas(true)
     try {
       if (!API_BASE_URL) {
-        console.error("API URL not configured");
-        return;
+        console.error("API URL not configured")
+        return
       }
-      const response = await fetch(`${API_BASE_URL}/aprobado/detalles`);
+
+      // Only fetch if we have a valid current period
+      if (!periodoActual || periodoActual === "Sin periodo activo" || periodoActual === "Error") {
+        setAyudantiasAprobadas([])
+        return
+      }
+
+      // Use the period-specific endpoint
+      const response = await fetch(`${API_BASE_URL}/aprobado/periodo/${periodoActual}`)
       if (response.ok) {
-        const data = await response.json();
-        setAyudantiasAprobadas(data);
+        const data = await response.json()
+
+        // Fetch details for each approved ayudantia
+        const detallesPromises = data.map(async (aprobado: any) => {
+          try {
+            const ayudantiaRes = await fetch(`${API_BASE_URL}/ayudantias/${aprobado.id_ayudantia}`)
+            if (ayudantiaRes.ok) {
+              const ayudantia = await ayudantiaRes.json()
+
+              // Fetch ayudante details
+              const ayudanteRes = await fetch(`${API_BASE_URL}/ayudantes/${ayudantia.cedula_ayudante}`)
+              const ayudante = ayudanteRes.ok ? await ayudanteRes.json() : null
+
+              // Fetch supervisor details
+              const supervisorRes = await fetch(`${API_BASE_URL}/supervisores/${ayudantia.cedula_supervisor}`)
+              const supervisor = supervisorRes.ok ? await supervisorRes.json() : null
+
+              return {
+                id: aprobado.id,
+                id_ayudantia: aprobado.id_ayudantia,
+                periodo: aprobado.periodo,
+                nombreAyudante: ayudante?.nombre || "N/A",
+                nombreSupervisor: supervisor?.nombre || "N/A",
+                plaza: ayudantia.plaza,
+                estado: "Aprobado",
+              }
+            }
+            return null
+          } catch (error) {
+            console.error("Error fetching ayudantia details:", error)
+            return null
+          }
+        })
+
+        const detalles = await Promise.all(detallesPromises)
+        setAyudantiasAprobadas(detalles.filter((d) => d !== null))
       } else {
-        setAyudantiasAprobadas([]);
+        setAyudantiasAprobadas([])
       }
     } catch (error) {
-      console.error("Error fetching aprobadas:", error);
-      setAyudantiasAprobadas([]);
+      console.error("Error fetching aprobadas:", error)
+      setAyudantiasAprobadas([])
     } finally {
-      setLoadingAprobadas(false);
+      setLoadingAprobadas(false)
     }
-  };
+  }
 
   // useEffect para llamar a fetchAprobadas
   useEffect(() => {
-    if (activeSection === 'evaluacion') {
-      fetchAprobadas();
+    if (activeSection === "evaluacion" && periodoActual) {
+      fetchAprobadas()
     }
-  }, [activeSection]);
+  }, [activeSection, periodoActual])
 
   useEffect(() => {
     if (activeSection === "periodos") {
@@ -1914,13 +1956,17 @@ export default function AdminDashboardPage() {
               </span>
             </div>
             <div className="text-sm text-muted-foreground">{adminEmail}</div>
-            
+
             {/* MODIFICADO: Botón de logout estandarizado */}
-            <Button variant="outline" size="sm" onClick={handleLogout} className="flex items-center space-x-2 bg-transparent">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="flex items-center space-x-2 bg-transparent"
+            >
               <LogOut className="h-4 w-4" />
               <span>Cerrar Sesión</span>
             </Button>
-            
           </div>
         </div>
       </header>
@@ -2008,7 +2054,7 @@ export default function AdminDashboardPage() {
                       { id: "seguimiento", title: "Seguimiento de Ayudantías" },
                       { id: "evaluacion", title: "Evaluación y Beneficios" },
                       { id: "periodos", title: "Gestión de Periodos" },
-                      { id: "periodo-evaluacion", title: "Periodo de Evaluación" }, // Added section title
+                      { id: "periodo-evaluacion", title: "Periodo de Evaluación" },
                     ].find((s) => s.id === activeSection)?.title
                   }
                 </h2>
@@ -2085,7 +2131,7 @@ export default function AdminDashboardPage() {
                                 ? "Visualiza la lista de estudiantes cuyas ayudantías han sido formalmente aprobadas." // MODIFICADO
                                 : activeSection === "periodos"
                                   ? "Gestiona los periodos académicos del sistema."
-                                  : activeSection === "periodo-evaluacion" 
+                                  : activeSection === "periodo-evaluacion"
                                     ? "Gestiona los periodos de evaluación del sistema."
                                     : `Esta funcionalidad estará disponible próximamente.`}
                       </CardDescription>
@@ -2504,62 +2550,62 @@ export default function AdminDashboardPage() {
                             </Card>
                           </div>
                         ) : showActivitiesView ? (
-                           <div className="w-full">
-                                <div className="flex items-center justify-between mb-6">
-                                    <Button variant="outline" size="sm" onClick={() => setShowActivitiesView(false)}>
-                                        <ChevronLeft className="h-4 w-4 mr-2" />
-                                        Volver
-                                    </Button>
-                                    <h2 className="text-2xl font-bold">Actividades de Ayudantías</h2>
-                                    <div /> {/* Spacer to keep title centered */}
-                                </div>
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Lista de Ayudantías Activas</CardTitle>
-                                        <CardDescription>Selecciona una ayudantía para ver sus actividades.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>ID Ayudantía</TableHead>
-                                                    <TableHead>Cédula Ayudante</TableHead>
-                                                    <TableHead>Plaza</TableHead>
-                                                    <TableHead className="text-right">Acciones</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {allAyudantias.length === 0 ? (
-                                                    <TableRow>
-                                                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                                                            No hay ayudantías para mostrar.
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ) : (
-                                                    allAyudantias.map((ayudantia) => (
-                                                        <TableRow key={ayudantia.id}>
-                                                            <TableCell>{ayudantia.id}</TableCell>
-                                                            <TableCell>{ayudantia.cedula_ayudante}</TableCell>
-                                                            <TableCell>{ayudantia.plaza}</TableCell>
-                                                            <TableCell className="text-right">
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="gap-2"
-                                                                    onClick={() => handleShowActivitiesForAyudantia(ayudantia)}
-                                                                >
-                                                                    <Eye className="h-4 w-4" />
-                                                                    Ver Actividades
-                                                                </Button>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                )}
-                                            </TableBody>
-                                        </Table>
-                                    </CardContent>
-                                </Card>
+                          <div className="w-full">
+                            <div className="flex items-center justify-between mb-6">
+                              <Button variant="outline" size="sm" onClick={() => setShowActivitiesView(false)}>
+                                <ChevronLeft className="h-4 w-4 mr-2" />
+                                Volver
+                              </Button>
+                              <h2 className="text-2xl font-bold">Actividades de Ayudantías</h2>
+                              <div /> {/* Spacer to keep title centered */}
                             </div>
+                            <Card>
+                              <CardHeader>
+                                <CardTitle>Lista de Ayudantías Activas</CardTitle>
+                                <CardDescription>Selecciona una ayudantía para ver sus actividades.</CardDescription>
+                              </CardHeader>
+                              <CardContent>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>ID Ayudantía</TableHead>
+                                      <TableHead>Cédula Ayudante</TableHead>
+                                      <TableHead>Plaza</TableHead>
+                                      <TableHead className="text-right">Acciones</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {allAyudantias.length === 0 ? (
+                                      <TableRow>
+                                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                                          No hay ayudantías para mostrar.
+                                        </TableCell>
+                                      </TableRow>
+                                    ) : (
+                                      allAyudantias.map((ayudantia) => (
+                                        <TableRow key={ayudantia.id}>
+                                          <TableCell>{ayudantia.id}</TableCell>
+                                          <TableCell>{ayudantia.cedula_ayudante}</TableCell>
+                                          <TableCell>{ayudantia.plaza}</TableCell>
+                                          <TableCell className="text-right">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="gap-2 bg-transparent"
+                                              onClick={() => handleShowActivitiesForAyudantia(ayudantia)}
+                                            >
+                                              <Eye className="h-4 w-4" />
+                                              Ver Actividades
+                                            </Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              </CardContent>
+                            </Card>
+                          </div>
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
                             <Card
@@ -2577,11 +2623,11 @@ export default function AdminDashboardPage() {
                               </CardHeader>
                             </Card>
 
-                            <Card 
+                            <Card
                               className="border-2 border-border hover:border-primary/50 transition-colors cursor-pointer group"
                               onClick={() => {
-                                fetchAllAyudantias();
-                                setShowActivitiesView(true);
+                                fetchAllAyudantias()
+                                setShowActivitiesView(true)
                               }}
                             >
                               <CardHeader className="text-center pb-4">
@@ -2600,8 +2646,8 @@ export default function AdminDashboardPage() {
                         <div className="w-full">
                           {loadingAprobadas ? (
                             <div className="flex items-center justify-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                                <span className="ml-3 text-muted-foreground">Cargando beneficiarios...</span>
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                              <span className="ml-3 text-muted-foreground">Cargando beneficiarios...</span>
                             </div>
                           ) : ayudantiasAprobadas.length === 0 ? (
                             <div className="text-center text-muted-foreground py-8">
@@ -2621,8 +2667,8 @@ export default function AdminDashboardPage() {
                                 <TableBody>
                                   {ayudantiasAprobadas.map((item, index) => (
                                     <TableRow key={index}>
-                                      <TableCell className="font-medium">{item.nombre_ayudante}</TableCell>
-                                      <TableCell>{item.nombre_supervisor}</TableCell>
+                                      <TableCell className="font-medium">{item.nombreAyudante}</TableCell>
+                                      <TableCell>{item.nombreSupervisor}</TableCell>
                                       <TableCell>{item.plaza}</TableCell>
                                       <TableCell>
                                         <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-green-700 bg-green-100">
@@ -3490,60 +3536,65 @@ export default function AdminDashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
-      
+
       {/* AGREGADO: Modal para ver actividades */}
       <Dialog open={showActivitiesModal} onOpenChange={setShowActivitiesModal}>
         <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-                <DialogTitle>Actividades de la Ayudantía #{selectedAyudantia?.id}</DialogTitle>
-                <DialogDescription>
-                    Mostrando actividades para el ayudante con cédula {selectedAyudantia?.cedula_ayudante} en la plaza de {selectedAyudantia?.plaza}.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="mt-4">
-                {loadingActivities ? (
-                    <div className="flex justify-center items-center h-40">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        <span className="ml-3 text-muted-foreground">Cargando actividades...</span>
-                    </div>
-                ) : selectedAyudantiaActivities.length > 0 ? (
-                    <div className="max-h-[60vh] overflow-y-auto rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Fecha</TableHead>
-                                    <TableHead>Descripción</TableHead>
-                                    <TableHead className="text-right">Evidencia</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {selectedAyudantiaActivities.map((actividad) => (
-                                    <TableRow key={actividad.id}>
-                                        <TableCell>{new Date(actividad.fecha).toLocaleString()}</TableCell>
-                                        <TableCell className="max-w-sm whitespace-pre-wrap">{actividad.descripcion}</TableCell>
-                                        <TableCell className="text-right">
-                                            {actividad.evidencia ? (
-                                                <Button asChild variant="link" size="sm">
-                                                    <a href={actividad.evidencia} target="_blank" rel="noopener noreferrer">
-                                                        Ver
-                                                    </a>
-                                                </Button>
-                                            ) : (
-                                                <span className="text-xs text-muted-foreground">N/A</span>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                ) : (
-                    <p className="text-center text-muted-foreground py-10">No hay actividades registradas para esta ayudantía.</p>
-                )}
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setShowActivitiesModal(false)}>Cerrar</Button>
-            </DialogFooter>
+          <DialogHeader>
+            <DialogTitle>Actividades de la Ayudantía #{selectedAyudantia?.id}</DialogTitle>
+            <DialogDescription>
+              Mostrando actividades para el ayudante con cédula {selectedAyudantia?.cedula_ayudante} en la plaza de{" "}
+              {selectedAyudantia?.plaza}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            {loadingActivities ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <span className="ml-3 text-muted-foreground">Cargando actividades...</span>
+              </div>
+            ) : selectedAyudantiaActivities.length > 0 ? (
+              <div className="max-h-[60vh] overflow-y-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Descripción</TableHead>
+                      <TableHead className="text-right">Evidencia</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedAyudantiaActivities.map((actividad) => (
+                      <TableRow key={actividad.id}>
+                        <TableCell>{new Date(actividad.fecha).toLocaleString()}</TableCell>
+                        <TableCell className="max-w-sm whitespace-pre-wrap">{actividad.descripcion}</TableCell>
+                        <TableCell className="text-right">
+                          {actividad.evidencia ? (
+                            <Button asChild variant="link" size="sm">
+                              <a href={actividad.evidencia} target="_blank" rel="noopener noreferrer">
+                                Ver
+                              </a>
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">N/A</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-10">
+                No hay actividades registradas para esta ayudantía.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowActivitiesModal(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
