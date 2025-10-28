@@ -101,7 +101,7 @@ const createSupervisorSchema = z.object({
     .string()
     .min(1, "El correo es requerido")
     .email("Formato de correo inválido")
-    .refine((email) => email.endsWith("@unimet.edu.ve"), "El correo debe terminar en @correo.unimet.edu.ve"),
+    .refine((email) => email.endsWith("@unimet.edu.ve"), "El correo debe terminar en @unimet.edu.ve"),
 })
 
 const editSupervisorSchema = z.object({
@@ -110,7 +110,7 @@ const editSupervisorSchema = z.object({
     .string()
     .min(1, "El correo es requerido")
     .email("Formato de correo inválido")
-    .refine((email) => email.endsWith("@unimet.edu.ve"), "El correo debe terminar en @correo.unimet.edu.ve"),
+    .refine((email) => email.endsWith("@unimet.edu.ve"), "El correo debe terminar en @unimet.edu.ve"),
 })
 
 type CreateAssistantForm = z.infer<typeof createAssistantSchema>
