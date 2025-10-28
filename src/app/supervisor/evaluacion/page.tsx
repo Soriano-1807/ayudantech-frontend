@@ -144,6 +144,63 @@ export default function EvaluacionPage() {
         return
       }
 
+      const periodoRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/actual`)
+      let periodoActual = "Periodo actual"
+      if (periodoRes.ok) {
+        const periodoData = await periodoRes.json()
+        periodoActual = periodoData.nombre
+      }
+
+      try {
+        const ayudanteRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/ayudantes/${ayudantiaToApprove.cedula_ayudante}`,
+        )
+
+        if (ayudanteRes.ok) {
+          const ayudanteData = await ayudanteRes.json()
+
+          if (ayudanteData.correo) {
+            await fetch("/api/send-email", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                to: ayudanteData.correo,
+                subject: "✅ Tu ayudantía ha sido evaluada y aprobada",
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background-color: #16a34a; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+                      <h2 style="margin: 0;">¡Felicitaciones ${ayudantiaToApprove.nombre_ayudante || ayudanteData.nombre}!</h2>
+                    </div>
+                    <div style="background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+                      <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+                        Tu ayudantía ha sido evaluada y <strong>aprobada exitosamente</strong>.
+                      </p>
+                      <div style="background-color: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;">
+                        <p style="margin: 8px 0; color: #374151;"><strong>Plaza:</strong> ${ayudantiaToApprove.plaza}</p>
+                        <p style="margin: 8px 0; color: #374151;"><strong>Periodo:</strong> ${periodoActual}</p>
+                        <p style="margin: 8px 0; color: #374151;"><strong>Tipo:</strong> ${ayudantiaToApprove.tipo_ayudante}</p>
+                      </div>
+                      <p style="font-size: 16px; color: #374151; margin-top: 20px;">
+                        Continúa con el excelente trabajo.
+                      </p>
+                      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+                      <p style="color: #6b7280; font-size: 14px; margin: 0;">
+                        Este es un correo automático, por favor no responder.
+                      </p>
+                    </div>
+                  </div>
+                `,
+              }),
+            })
+          }
+        }
+      } catch (emailError) {
+        console.error("Error al enviar correo de notificación:", emailError)
+        // No mostramos error al usuario, la aprobación fue exitosa
+      }
+
       // Move ayudantía from no aprobadas to aprobadas
       setAyudantiasNoAprobadas((prev) => prev.filter((a) => a.id !== ayudantiaToApprove.id))
       setAyudantiasAprobadas((prev) => [...prev, ayudantiaToApprove])
