@@ -272,7 +272,7 @@ export default function HomePage() {
               <div className="space-y-2 text-muted-foreground">
                 <p>DDBE - UNIMET</p>
                 <p>Caracas, Venezuela</p>
-                <p>ayudantech@unimet.edu.ve</p>
+                <p>ayudantechunimet@gmail.com</p>
               </div>
             </div>
             <div>
