@@ -288,8 +288,11 @@ export default function AdminDashboardPage() {
         ),
       ].join("\n")
 
+      const BOM = "\uFEFF"
+      const csvWithBOM = BOM + csvContent
+
       // Descargar archivo
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const blob = new Blob([csvWithBOM], { type: "text/csv;charset=utf-8;" })
       const link = document.createElement("a")
       const url = URL.createObjectURL(blob)
       link.setAttribute("href", url)
@@ -1277,7 +1280,7 @@ export default function AdminDashboardPage() {
                       </div>
                       <div style="margin-bottom: 12px;">
                         <strong style="color: #374151;">Rol:</strong> 
-                        <span style="color: #059669; font-weight: 600;">Supervisor</span>
+                        <span style="color: #065f46; font-weight: 600;">Supervisor</span>
                       </div>
                     </div>
                     
