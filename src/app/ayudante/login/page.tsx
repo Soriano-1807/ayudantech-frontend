@@ -128,7 +128,7 @@ export default function AyudanteLoginPage() {
         {/* Footer */}
         <div className="text-center mt-6 text-sm text-muted-foreground">
           <p>¿Problemas para acceder?</p>
-          <p>Contacta a tu supervisor o al departamento DDBE</p>
+          <p>Contacta a tu supervisor o a la DDBE</p>
         </div>
       </div>
     </div>
