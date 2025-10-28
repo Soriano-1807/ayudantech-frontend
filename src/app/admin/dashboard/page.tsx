@@ -48,6 +48,7 @@ import {
   ClipboardCheck,
   Eye,
   CheckCircle2,
+  Download,
 } from "lucide-react"
 
 interface Actividad {
@@ -259,6 +260,49 @@ export default function AdminDashboardPage() {
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [periodoToDelete, setPeriodoToDelete] = useState<string | null>(null)
+
+  const handleDownloadCSV = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/aprobado/detalles`)
+      if (!response.ok) {
+        throw new Error("Error al obtener los datos")
+      }
+
+      const data = await response.json()
+      const ayudantias = data.ayudantias_aprobadas
+
+      if (!ayudantias || ayudantias.length === 0) {
+        setErrorDialogMessage("No hay datos para descargar")
+        setShowErrorDialog(true)
+        return
+      }
+
+      // Crear CSV
+      const headers = ["Nombre Ayudante", "Nombre Supervisor", "Plaza", "Periodo"]
+      const csvContent = [
+        headers.join(","),
+        ...ayudantias.map((item: any) =>
+          [`"${item.nombre_ayudante}"`, `"${item.nombre_supervisor}"`, `"${item.plaza}"`, `"${item.periodo}"`].join(
+            ",",
+          ),
+        ),
+      ].join("\n")
+
+      // Descargar archivo
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const link = document.createElement("a")
+      const url = URL.createObjectURL(blob)
+      link.setAttribute("href", url)
+      link.setAttribute("download", `ayudantias_aprobadas_${new Date().toISOString().split("T")[0]}.csv`)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      setErrorDialogMessage(error instanceof Error ? error.message : "Error al descargar el archivo CSV")
+      setShowErrorDialog(true)
+    }
+  }
 
   const {
     register,
@@ -720,51 +764,23 @@ export default function AdminDashboardPage() {
         return
       }
 
-      // Only fetch if we have a valid current period
-      if (!periodoActual || periodoActual === "Sin periodo activo" || periodoActual === "Error") {
-        setAyudantiasAprobadas([])
-        return
-      }
-
-      // Use the period-specific endpoint
-      const response = await fetch(`${API_BASE_URL}/aprobado/periodo/${periodoActual}`)
+      // MODIFICADO: Simplified fetchAprobadas to use new /aprobado/detalles endpoint
+      const response = await fetch(`${API_BASE_URL}/aprobado/detalles`)
       if (response.ok) {
         const data = await response.json()
 
-        // Fetch details for each approved ayudantia
-        const detallesPromises = data.map(async (aprobado: any) => {
-          try {
-            const ayudantiaRes = await fetch(`${API_BASE_URL}/ayudantias/${aprobado.id_ayudantia}`)
-            if (ayudantiaRes.ok) {
-              const ayudantia = await ayudantiaRes.json()
+        // Map the response to match our interface
+        const aprobadas = data.ayudantias_aprobadas.map((item: any, index: number) => ({
+          id: index + 1,
+          id_ayudantia: 0, // Not provided by new endpoint
+          periodo: item.periodo,
+          nombreAyudante: item.nombre_ayudante,
+          nombreSupervisor: item.nombre_supervisor,
+          plaza: item.plaza,
+          estado: "Aprobado",
+        }))
 
-              // Fetch ayudante details
-              const ayudanteRes = await fetch(`${API_BASE_URL}/ayudantes/${ayudantia.cedula_ayudante}`)
-              const ayudante = ayudanteRes.ok ? await ayudanteRes.json() : null
-
-              // Fetch supervisor details
-              const supervisorRes = await fetch(`${API_BASE_URL}/supervisores/${ayudantia.cedula_supervisor}`)
-              const supervisor = supervisorRes.ok ? await supervisorRes.json() : null
-
-              return {
-                id: aprobado.id,
-                id_ayudantia: aprobado.id_ayudantia,
-                periodo: aprobado.periodo,
-                nombreAyudante: ayudante?.nombre || "N/A",
-                nombreSupervisor: supervisor?.nombre || "N/A",
-                plaza: ayudantia.plaza,
-                estado: "Aprobado",
-              }
-            }
-            return null
-          } catch (error) {
-            console.error("Error fetching ayudantia details:", error)
-            return null
-          }
-        })
-
-        const detalles = await Promise.all(detallesPromises)
-        setAyudantiasAprobadas(detalles.filter((d) => d !== null))
+        setAyudantiasAprobadas(aprobadas)
       } else {
         setAyudantiasAprobadas([])
       }
@@ -777,11 +793,12 @@ export default function AdminDashboardPage() {
   }
 
   // useEffect para llamar a fetchAprobadas
+  // MODIFICADO: Simplified useEffect dependency - no longer needs periodoActual
   useEffect(() => {
-    if (activeSection === "evaluacion" && periodoActual) {
+    if (activeSection === "evaluacion") {
       fetchAprobadas()
     }
-  }, [activeSection, periodoActual])
+  }, [activeSection])
 
   useEffect(() => {
     if (activeSection === "periodos") {
@@ -2092,6 +2109,12 @@ export default function AdminDashboardPage() {
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Nueva Plaza
+                  </Button>
+                )}
+                {activeSection === "evaluacion" && (
+                  <Button onClick={handleDownloadCSV} variant="outline" className="gap-2 bg-transparent">
+                    <Download className="h-4 w-4" />
+                    Descargar CSV
                   </Button>
                 )}
                 {activeSection === "seguimiento" && !showAyudantiasView && !showActivitiesView && (
