@@ -179,15 +179,6 @@ export default function AdminLoginPage() {
                 )}
               </Button>
             </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                ¿Problemas para acceder?{" "}
-                <a href="mailto:ayudantech@unimet.edu.ve" className="text-primary hover:underline">
-                  Contacta soporte
-                </a>
-              </p>
-            </div>
           </CardContent>
         </Card>
 
