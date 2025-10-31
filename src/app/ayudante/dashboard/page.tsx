@@ -141,18 +141,23 @@ export default function AyudanteDashboardPage() {
 
                 if (aprobadoResponse.ok) {
                   const aprobadoData = await aprobadoResponse.json()
+                  console.log("[v0] Aprobado data:", aprobadoData)
+                  console.log("[v0] Periodo actual:", periodoActual)
 
                   // Comparar el periodo de aprobación con el periodo actual
                   if (periodoActual && aprobadoData.periodo === periodoActual) {
+                    console.log("[v0] Setting isAprobadaEnPeriodoActual to true")
                     setIsAprobadaEnPeriodoActual(true)
                   } else {
+                    console.log("[v0] Periodo no coincide o no hay periodo actual")
                     setIsAprobadaEnPeriodoActual(false)
                   }
                 } else {
+                  console.log("[v0] No aprobado response - status:", aprobadoResponse.status)
                   setIsAprobadaEnPeriodoActual(false)
                 }
               } catch (error) {
-                console.error("Error verificando aprobación:", error)
+                console.error("[v0] Error verificando aprobación:", error)
                 setIsAprobadaEnPeriodoActual(false)
               }
             } else if (ayudantiaResponse.status === 404) {
@@ -721,4 +726,3 @@ export default function AyudanteDashboardPage() {
     </div>
   )
 }
-
