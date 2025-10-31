@@ -1,6 +1,20 @@
 "use client"
 
-import { BookOpen, ArrowLeft, Mail, Award as IdCard, Building2, User, Briefcase, Edit2, Save, X, Plus } from "lucide-react"
+import type React from "react"
+
+import {
+  BookOpen,
+  ArrowLeft,
+  Mail,
+  Award as IdCard,
+  Building2,
+  User,
+  Briefcase,
+  Edit2,
+  Save,
+  X,
+  Plus,
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -51,10 +65,10 @@ export default function AyudanteDashboardPage() {
   const [actividadMensaje, setActividadMensaje] = useState<string | null>(null)
   const [isSubmittingActividad, setIsSubmittingActividad] = useState(false)
   const [showActivitySuccessModal, setShowActivitySuccessModal] = useState(false)
+  const [actividades, setActividades] = useState<any[]>([])
+  const [isAprobadaEnPeriodoActual, setIsAprobadaEnPeriodoActual] = useState(false)
 
   // NUEVO: listado de actividades y función para obtenerlas
-  const [actividades, setActividades] = useState<any[]>([])
-
   const fetchActividades = async () => {
     if (!ayudantia) {
       setActividades([])
@@ -119,6 +133,28 @@ export default function AyudanteDashboardPage() {
               setAyudantia(ayudantiaData)
               setHasAyudantia(true)
               setObjetivoText(ayudantiaData.desc_objetivo || "")
+
+              try {
+                const aprobadoResponse = await fetch(
+                  `${process.env.NEXT_PUBLIC_API_URL}/aprobado/ayudantia/${ayudantiaData.id}`,
+                )
+
+                if (aprobadoResponse.ok) {
+                  const aprobadoData = await aprobadoResponse.json()
+
+                  // Comparar el periodo de aprobación con el periodo actual
+                  if (periodoActual && aprobadoData.periodo === periodoActual) {
+                    setIsAprobadaEnPeriodoActual(true)
+                  } else {
+                    setIsAprobadaEnPeriodoActual(false)
+                  }
+                } else {
+                  setIsAprobadaEnPeriodoActual(false)
+                }
+              } catch (error) {
+                console.error("Error verificando aprobación:", error)
+                setIsAprobadaEnPeriodoActual(false)
+              }
             } else if (ayudantiaResponse.status === 404) {
               setHasAyudantia(false)
             }
@@ -138,8 +174,10 @@ export default function AyudanteDashboardPage() {
       }
     }
 
-    fetchAyudanteData()
-  }, [router])
+    if (periodoActual) {
+      fetchAyudanteData()
+    }
+  }, [router, periodoActual])
 
   const handleSaveObjetivo = async () => {
     if (!ayudantia) return
@@ -243,7 +281,8 @@ export default function AyudanteDashboardPage() {
         evidenciaPayload = actividadEvidenciaComentario.trim()
       }
 
-      const periodo = periodoActual || getCurrentUserFromSession()?.periodo || getCurrentUserFromSession()?.periodoActual || ""
+      const periodo =
+        periodoActual || getCurrentUserFromSession()?.periodo || getCurrentUserFromSession()?.periodoActual || ""
       const fecha = actividadFecha // frontend incluye fecha (backend también genera si lo prefiere)
 
       const payload: any = {
@@ -256,7 +295,7 @@ export default function AyudanteDashboardPage() {
 
       console.debug("Enviando actividad (JSON) ->", {
         url: `${apiUrl}/actividades`,
-        payload
+        payload,
       })
 
       const res = await fetch(`${apiUrl}/actividades`, {
@@ -347,6 +386,34 @@ export default function AyudanteDashboardPage() {
             </button>
           </div>
         </div>
+
+        {isAprobadaEnPeriodoActual && (
+          <div className="mb-6 rounded-lg border border-green-500 bg-green-50 dark:bg-green-950/20 p-4">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <svg
+                    className="h-6 w-6 text-green-600 dark:text-green-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M5 13l4 4L19 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                  </svg>
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-base text-green-800 dark:text-green-200 mb-1">
+                  Tu ayudantía ha sido aprobada
+                </h3>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  Felicitaciones, tu ayudantía para el periodo <span className="font-bold">{periodoActual}</span> ha
+                  sido evaluada y aprobada exitosamente.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-6">
           <Card>
@@ -485,7 +552,6 @@ export default function AyudanteDashboardPage() {
               )}
             </CardContent>
           </Card>
-
         </div>
       </div>
 
@@ -522,23 +588,28 @@ export default function AyudanteDashboardPage() {
       </Dialog>
 
       {/* Modal de crear actividad */}
-      <Dialog open={showActivityModal} onOpenChange={(open) => {
-        setShowActivityModal(open)
-        if (!open) {
-          setActividadMensaje(null)
-          setActividadDesc("")
-          setActividadEvidencia(null)
-          setActividadEvidenciaComentario("")
-          setActividadFecha(new Date().toISOString().slice(0,10))
-        }
-      }}>
+      <Dialog
+        open={showActivityModal}
+        onOpenChange={(open) => {
+          setShowActivityModal(open)
+          if (!open) {
+            setActividadMensaje(null)
+            setActividadDesc("")
+            setActividadEvidencia(null)
+            setActividadEvidenciaComentario("")
+            setActividadFecha(new Date().toISOString().slice(0, 10))
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Agregar Actividad</DialogTitle>
           </DialogHeader>
 
           {actividadMensaje && (
-            <div className={`p-3 rounded-md mb-3 ${actividadMensaje.startsWith("✅") ? "bg-green-100 text-green-900" : "bg-red-100 text-red-900"}`}>
+            <div
+              className={`p-3 rounded-md mb-3 ${actividadMensaje.startsWith("✅") ? "bg-green-100 text-green-900" : "bg-red-100 text-red-900"}`}
+            >
               {actividadMensaje}
             </div>
           )}
@@ -573,8 +644,13 @@ export default function AyudanteDashboardPage() {
                   onChange={handleFileChangeActividad}
                   className="hidden"
                 />
-                <label htmlFor="actividad-evidencia-file" className="inline-flex items-center px-3 py-2 rounded-md bg-muted/20 cursor-pointer text-sm">
-                  <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <label
+                  htmlFor="actividad-evidencia-file"
+                  className="inline-flex items-center px-3 py-2 rounded-md bg-muted/20 cursor-pointer text-sm"
+                >
+                  <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M12 5v14M5 12h14" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                   Seleccionar archivo
                 </label>
                 <span className="text-sm text-muted-foreground">
@@ -596,12 +672,17 @@ export default function AyudanteDashboardPage() {
             </div>
 
             <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowActivityModal(false)}>Cancelar</Button>
-              <Button onClick={async () => {
-                await handleCreateActividad()
-                // actualizar lista si se creó correctamente
-                setTimeout(fetchActividades, 500)
-              }} disabled={isSubmittingActividad || !actividadDesc}>
+              <Button variant="outline" onClick={() => setShowActivityModal(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  await handleCreateActividad()
+                  // actualizar lista si se creó correctamente
+                  setTimeout(fetchActividades, 500)
+                }}
+                disabled={isSubmittingActividad || !actividadDesc}
+              >
                 {isSubmittingActividad ? "Guardando..." : "Crear Actividad"}
               </Button>
             </div>
@@ -617,7 +698,12 @@ export default function AyudanteDashboardPage() {
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-4">
             <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-              <svg className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="h-6 w-6 text-green-600 dark:text-green-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path d="M5 13l4 4L19 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
               </svg>
             </div>
@@ -626,7 +712,9 @@ export default function AyudanteDashboardPage() {
             </p>
           </div>
           <div className="flex justify-center pb-2">
-            <Button onClick={() => setShowActivitySuccessModal(false)} className="w-24">OK</Button>
+            <Button onClick={() => setShowActivitySuccessModal(false)} className="w-24">
+              OK
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
