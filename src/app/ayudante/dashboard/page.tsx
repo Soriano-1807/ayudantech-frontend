@@ -94,22 +94,6 @@ export default function AyudanteDashboardPage() {
   }, [ayudantia])
 
   useEffect(() => {
-    const fetchPeriodoActual = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/actual`)
-        if (response.ok) {
-          const data: PeriodoData = await response.json()
-          setPeriodoActual(data.nombre)
-        }
-      } catch (error) {
-        console.error("Error fetching periodo actual:", error)
-      }
-    }
-
-    fetchPeriodoActual()
-  }, [])
-
-  useEffect(() => {
     const fetchAyudanteData = async () => {
       const email = localStorage.getItem("ayudanteEmail")
 
@@ -119,6 +103,15 @@ export default function AyudanteDashboardPage() {
       }
 
       try {
+        const periodoResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/actual`)
+        let currentPeriodo: string | null = null
+
+        if (periodoResponse.ok) {
+          const periodoData: PeriodoData = await periodoResponse.json()
+          currentPeriodo = periodoData.nombre
+          setPeriodoActual(currentPeriodo)
+        }
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ayudantes/correo/${email}`)
 
         if (response.ok) {
@@ -141,23 +134,18 @@ export default function AyudanteDashboardPage() {
 
                 if (aprobadoResponse.ok) {
                   const aprobadoData = await aprobadoResponse.json()
-                  console.log("[v0] Aprobado data:", aprobadoData)
-                  console.log("[v0] Periodo actual:", periodoActual)
 
-                  // Comparar el periodo de aprobación con el periodo actual
-                  if (periodoActual && aprobadoData.periodo === periodoActual) {
-                    console.log("[v0] Setting isAprobadaEnPeriodoActual to true")
+                  // Compare approval period with current period
+                  if (currentPeriodo && aprobadoData.periodo === currentPeriodo) {
                     setIsAprobadaEnPeriodoActual(true)
                   } else {
-                    console.log("[v0] Periodo no coincide o no hay periodo actual")
                     setIsAprobadaEnPeriodoActual(false)
                   }
                 } else {
-                  console.log("[v0] No aprobado response - status:", aprobadoResponse.status)
                   setIsAprobadaEnPeriodoActual(false)
                 }
               } catch (error) {
-                console.error("[v0] Error verificando aprobación:", error)
+                console.error("Error verificando aprobación:", error)
                 setIsAprobadaEnPeriodoActual(false)
               }
             } else if (ayudantiaResponse.status === 404) {
@@ -179,10 +167,8 @@ export default function AyudanteDashboardPage() {
       }
     }
 
-    if (periodoActual) {
-      fetchAyudanteData()
-    }
-  }, [router, periodoActual])
+    fetchAyudanteData()
+  }, [router])
 
   const handleSaveObjetivo = async () => {
     if (!ayudantia) return
