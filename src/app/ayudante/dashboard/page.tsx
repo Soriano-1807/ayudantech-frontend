@@ -145,47 +145,25 @@ export default function AyudanteDashboardPage() {
                     console.log("[v0] Es array?:", Array.isArray(aprobadosData))
 
                     // Asegurar que tenemos un array
-                    let ayudantiasAprobadas: any[] = []
-
-                    if (Array.isArray(aprobadosData)) {
-                      ayudantiasAprobadas = aprobadosData
-                    } else if (aprobadosData && typeof aprobadosData === "object") {
-                      // Si es un objeto, intentar extraer el array de propiedades comunes
-                      if (Array.isArray(aprobadosData.data)) {
-                        ayudantiasAprobadas = aprobadosData.data
-                      } else if (Array.isArray(aprobadosData.rows)) {
-                        ayudantiasAprobadas = aprobadosData.rows
-                      } else {
-                        console.log("[v0] Estructura del objeto:", Object.keys(aprobadosData))
-                      }
-                    }
-
+                    const ayudantiasAprobadas = aprobadosData?.ayudantias_aprobadas || []
                     console.log("[v0] Array de aprobados a procesar:", ayudantiasAprobadas)
                     console.log("[v0] Cantidad de registros aprobados:", ayudantiasAprobadas.length)
+
+                    if (ayudantiasAprobadas.length > 0) {
+                      console.log("[v0] Primer registro de ejemplo:", ayudantiasAprobadas[0])
+                    }
 
                     console.log("[v0] Buscando aprobación para ayudante cedula:", data.cedula)
                     console.log("[v0] Buscando aprobación para ayudantía id:", ayudantiaData.id)
 
-                    // Buscar si existe una ayudantía aprobada para este ayudante en el periodo actual
-                    let isApproved = false
+                    const nombreAyudanteActual = `${data.nombre} ${data.apellido}`.toLowerCase().trim()
+                    console.log("[v0] Nombre completo del ayudante actual:", nombreAyudanteActual)
 
-                    for (const aprobado of ayudantiasAprobadas) {
-                      console.log("[v0] Revisando registro aprobado:", aprobado)
-                      console.log("[v0] Campos disponibles:", Object.keys(aprobado))
-
-                      // Intentar múltiples formas de comparar
-                      if (aprobado.cedula_ayudante === data.cedula) {
-                        console.log("[v0] ✓ Match por cedula_ayudante")
-                        isApproved = true
-                        break
-                      }
-
-                      if (aprobado.id_ayudantia === ayudantiaData.id) {
-                        console.log("[v0] ✓ Match por id_ayudantia")
-                        isApproved = true
-                        break
-                      }
-                    }
+                    const isApproved = ayudantiasAprobadas.some((aprobado: any) => {
+                      const nombreAprobado = (aprobado.nombre_ayudante || "").toLowerCase().trim()
+                      console.log("[v0] Comparando con:", nombreAprobado)
+                      return nombreAprobado === nombreAyudanteActual
+                    })
 
                     console.log("[v0] Resultado final isApproved:", isApproved)
                     setIsAprobadaEnPeriodoActual(isApproved)
