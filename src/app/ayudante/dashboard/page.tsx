@@ -110,6 +110,7 @@ export default function AyudanteDashboardPage() {
           const periodoData: PeriodoData = await periodoResponse.json()
           currentPeriodo = periodoData.nombre
           setPeriodoActual(currentPeriodo)
+          console.log("[v0] Periodo actual obtenido:", currentPeriodo)
         }
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ayudantes/correo/${email}`)
@@ -117,6 +118,7 @@ export default function AyudanteDashboardPage() {
         if (response.ok) {
           const data = await response.json()
           setAyudante(data)
+          console.log("[v0] Ayudante data:", data)
 
           try {
             const ayudantiaResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ayudantias/cedula/${data.cedula}`)
@@ -126,33 +128,44 @@ export default function AyudanteDashboardPage() {
               setAyudantia(ayudantiaData)
               setHasAyudantia(true)
               setObjetivoText(ayudantiaData.desc_objetivo || "")
+              console.log("[v0] Ayudantia data:", ayudantiaData)
 
               try {
-                const aprobadoResponse = await fetch(
-                  `${process.env.NEXT_PUBLIC_API_URL}/aprobado/ayudantia/${ayudantiaData.id}`,
-                )
+                const aprobadoUrl = `${process.env.NEXT_PUBLIC_API_URL}/aprobado/ayudantia/${ayudantiaData.id}`
+                console.log("[v0] Consultando aprobación en:", aprobadoUrl)
+
+                const aprobadoResponse = await fetch(aprobadoUrl)
+                console.log("[v0] Respuesta de aprobación - status:", aprobadoResponse.status)
 
                 if (aprobadoResponse.ok) {
                   const aprobadoData = await aprobadoResponse.json()
+                  console.log("[v0] Datos de aprobación recibidos:", aprobadoData)
+                  console.log("[v0] Periodo de aprobación:", aprobadoData.periodo)
+                  console.log("[v0] Periodo actual:", currentPeriodo)
+                  console.log("[v0] ¿Son iguales?:", aprobadoData.periodo === currentPeriodo)
 
                   // Compare approval period with current period
                   if (currentPeriodo && aprobadoData.periodo === currentPeriodo) {
+                    console.log("[v0] ✅ APROBADA - Mostrando banner verde")
                     setIsAprobadaEnPeriodoActual(true)
                   } else {
+                    console.log("[v0] ❌ NO APROBADA - Periodos no coinciden")
                     setIsAprobadaEnPeriodoActual(false)
                   }
                 } else {
+                  console.log("[v0] ❌ No hay registro de aprobación (404 o error)")
                   setIsAprobadaEnPeriodoActual(false)
                 }
               } catch (error) {
-                console.error("Error verificando aprobación:", error)
+                console.error("[v0] ❌ Error verificando aprobación:", error)
                 setIsAprobadaEnPeriodoActual(false)
               }
             } else if (ayudantiaResponse.status === 404) {
+              console.log("[v0] No se encontró ayudantía para este ayudante")
               setHasAyudantia(false)
             }
           } catch (error) {
-            console.error("Error fetching ayudantia data:", error)
+            console.error("[v0] Error fetching ayudantia data:", error)
             setHasAyudantia(false)
           }
         } else {
@@ -160,7 +173,7 @@ export default function AyudanteDashboardPage() {
           router.push("/ayudante/login")
         }
       } catch (error) {
-        console.error("Error fetching ayudante data:", error)
+        console.error("[v0] Error fetching ayudante data:", error)
         router.push("/ayudante/login")
       } finally {
         setIsLoading(false)
