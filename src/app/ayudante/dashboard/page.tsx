@@ -154,11 +154,11 @@ export default function AyudanteDashboardPage() {
                     console.log("[v0] Cantidad:", ayudantiasAprobadas.length)
 
                     if (ayudantiasAprobadas.length > 0) {
-                      const nombreAyudanteActual = [data.nombre, data.apellido]
-                        .filter(Boolean)
-                        .join(" ")
-                        .toLowerCase()
-                        .trim()
+                      const nombreParts = []
+                      if (data.nombre) nombreParts.push(data.nombre)
+                      if (data.apellido) nombreParts.push(data.apellido)
+                      const nombreAyudanteActual = nombreParts.join(" ").toLowerCase().trim()
+
                       console.log("[v0] Buscando:", nombreAyudanteActual)
                       console.log("[v0] Primer registro:", ayudantiasAprobadas[0])
 
