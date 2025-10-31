@@ -134,19 +134,34 @@ export default function AyudanteDashboardPage() {
               if (currentPeriodo) {
                 try {
                   console.log("[v0] Consultando aprobaciones para periodo:", currentPeriodo)
-                  const aprobadosResponse = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL}/aprobado/detalles?periodo=${currentPeriodo}`,
-                  )
+                  const aprobadosResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/aprobado/detalles`)
 
                   console.log("[v0] Status de respuesta aprobados:", aprobadosResponse.status)
 
                   if (aprobadosResponse.ok) {
                     const aprobadosData = await aprobadosResponse.json()
-                    console.log("[v0] Datos de aprobados recibidos:", aprobadosData)
-                    console.log("[v0] Cantidad de registros aprobados:", aprobadosData?.length || 0)
+                    console.log("[v0] Datos de aprobados recibidos (raw):", aprobadosData)
+                    console.log("[v0] Tipo de datos:", typeof aprobadosData)
+                    console.log("[v0] Es array?:", Array.isArray(aprobadosData))
 
-                    // Verificar si alguna ayudantía aprobada pertenece a este ayudante
-                    const ayudantiasAprobadas = aprobadosData || []
+                    // Asegurar que tenemos un array
+                    let ayudantiasAprobadas: any[] = []
+
+                    if (Array.isArray(aprobadosData)) {
+                      ayudantiasAprobadas = aprobadosData
+                    } else if (aprobadosData && typeof aprobadosData === "object") {
+                      // Si es un objeto, intentar extraer el array de propiedades comunes
+                      if (Array.isArray(aprobadosData.data)) {
+                        ayudantiasAprobadas = aprobadosData.data
+                      } else if (Array.isArray(aprobadosData.rows)) {
+                        ayudantiasAprobadas = aprobadosData.rows
+                      } else {
+                        console.log("[v0] Estructura del objeto:", Object.keys(aprobadosData))
+                      }
+                    }
+
+                    console.log("[v0] Array de aprobados a procesar:", ayudantiasAprobadas)
+                    console.log("[v0] Cantidad de registros aprobados:", ayudantiasAprobadas.length)
 
                     console.log("[v0] Buscando aprobación para ayudante cedula:", data.cedula)
                     console.log("[v0] Buscando aprobación para ayudantía id:", ayudantiaData.id)
@@ -156,9 +171,9 @@ export default function AyudanteDashboardPage() {
 
                     for (const aprobado of ayudantiasAprobadas) {
                       console.log("[v0] Revisando registro aprobado:", aprobado)
+                      console.log("[v0] Campos disponibles:", Object.keys(aprobado))
 
-                      // El endpoint /aprobado/detalles puede devolver diferentes campos
-                      // Intentamos múltiples formas de comparar
+                      // Intentar múltiples formas de comparar
                       if (aprobado.cedula_ayudante === data.cedula) {
                         console.log("[v0] ✓ Match por cedula_ayudante")
                         isApproved = true
