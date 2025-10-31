@@ -110,7 +110,6 @@ export default function AyudanteDashboardPage() {
           const periodoData: PeriodoData = await periodoResponse.json()
           currentPeriodo = periodoData.nombre
           setPeriodoActual(currentPeriodo)
-          console.log("[v0] Periodo actual obtenido:", currentPeriodo)
         }
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ayudantes/correo/${email}`)
@@ -118,7 +117,6 @@ export default function AyudanteDashboardPage() {
         if (response.ok) {
           const data = await response.json()
           setAyudante(data)
-          console.log("[v0] Ayudante data:", data)
 
           try {
             const ayudantiaResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ayudantias/cedula/${data.cedula}`)
@@ -128,55 +126,57 @@ export default function AyudanteDashboardPage() {
               setAyudantia(ayudantiaData)
               setHasAyudantia(true)
               setObjetivoText(ayudantiaData.desc_objetivo || "")
-              console.log("[v0] Ayudantia data:", ayudantiaData)
 
-              // Consultamos todas las ayudantías aprobadas del periodo actual
               if (currentPeriodo) {
                 try {
-                  console.log("[v0] Consultando aprobaciones para periodo:", currentPeriodo)
                   const aprobadosResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/aprobado/detalles`)
-
-                  console.log("[v0] Status de respuesta aprobados:", aprobadosResponse.status)
 
                   if (aprobadosResponse.ok) {
                     const aprobadosData = await aprobadosResponse.json()
-                    console.log("[v0] Datos de aprobados recibidos (raw):", aprobadosData)
-                    console.log("[v0] Tipo de datos:", typeof aprobadosData)
-                    console.log("[v0] Es array?:", Array.isArray(aprobadosData))
 
-                    // Asegurar que tenemos un array
-                    const ayudantiasAprobadas = aprobadosData?.ayudantias_aprobadas || []
-                    console.log("[v0] Array de aprobados a procesar:", ayudantiasAprobadas)
-                    console.log("[v0] Cantidad de registros aprobados:", ayudantiasAprobadas.length)
+                    // Extraer el array de ayudantías aprobadas
+                    let ayudantiasAprobadas: any[] = []
 
-                    if (ayudantiasAprobadas.length > 0) {
-                      console.log("[v0] Primer registro de ejemplo:", ayudantiasAprobadas[0])
+                    if (Array.isArray(aprobadosData)) {
+                      ayudantiasAprobadas = aprobadosData
+                    } else if (aprobadosData && typeof aprobadosData === "object") {
+                      // Intentar extraer de diferentes propiedades posibles
+                      if (Array.isArray(aprobadosData.ayudantias_aprobadas)) {
+                        ayudantiasAprobadas = aprobadosData.ayudantias_aprobadas
+                      } else if (Array.isArray(aprobadosData.data)) {
+                        ayudantiasAprobadas = aprobadosData.data
+                      } else if (Array.isArray(aprobadosData.rows)) {
+                        ayudantiasAprobadas = aprobadosData.rows
+                      }
                     }
 
-                    console.log("[v0] Buscando aprobación para ayudante cedula:", data.cedula)
-                    console.log("[v0] Buscando aprobación para ayudantía id:", ayudantiaData.id)
+                    console.log("[v0] Array extraído:", ayudantiasAprobadas)
+                    console.log("[v0] Cantidad:", ayudantiasAprobadas.length)
 
-                    const nombreAyudanteActual = `${data.nombre} ${data.apellido}`.toLowerCase().trim()
-                    console.log("[v0] Nombre completo del ayudante actual:", nombreAyudanteActual)
+                    if (ayudantiasAprobadas.length > 0) {
+                      const nombreAyudanteActual = `${data.nombre} ${data.apellido}`.toLowerCase().trim()
+                      console.log("[v0] Buscando:", nombreAyudanteActual)
+                      console.log("[v0] Primer registro:", ayudantiasAprobadas[0])
 
-                    const isApproved = ayudantiasAprobadas.some((aprobado: any) => {
-                      const nombreAprobado = (aprobado.nombre_ayudante || "").toLowerCase().trim()
-                      console.log("[v0] Comparando con:", nombreAprobado)
-                      return nombreAprobado === nombreAyudanteActual
-                    })
+                      const isApproved = ayudantiasAprobadas.some((aprobado: any) => {
+                        const nombreAprobado = (aprobado.nombre_ayudante || "").toLowerCase().trim()
+                        console.log("[v0] Comparando:", nombreAprobado, "===", nombreAyudanteActual)
+                        return nombreAprobado === nombreAyudanteActual
+                      })
 
-                    console.log("[v0] Resultado final isApproved:", isApproved)
-                    setIsAprobadaEnPeriodoActual(isApproved)
-                  } else {
-                    console.log("[v0] Error en respuesta de aprobados, status:", aprobadosResponse.status)
+                      console.log("[v0] Resultado:", isApproved)
+                      setIsAprobadaEnPeriodoActual(isApproved)
+                    } else {
+                      console.log("[v0] No hay registros aprobados")
+                      setIsAprobadaEnPeriodoActual(false)
+                    }
                   }
                 } catch (error) {
-                  console.error("[v0] Error verificando aprobación:", error)
+                  console.error("[v0] Error:", error)
                   setIsAprobadaEnPeriodoActual(false)
                 }
               }
             } else if (ayudantiaResponse.status === 404) {
-              console.log("[v0] No se encontró ayudantía para este ayudante")
               setHasAyudantia(false)
             }
           } catch (error) {
