@@ -130,35 +130,57 @@ export default function AyudanteDashboardPage() {
               setObjetivoText(ayudantiaData.desc_objetivo || "")
               console.log("[v0] Ayudantia data:", ayudantiaData)
 
-              try {
-                const aprobadoUrl = `${process.env.NEXT_PUBLIC_API_URL}/aprobado/ayudantia/${ayudantiaData.id}`
-                console.log("[v0] Consultando aprobación en:", aprobadoUrl)
+              // Consultamos todas las ayudantías aprobadas del periodo actual
+              if (currentPeriodo) {
+                try {
+                  console.log("[v0] Consultando aprobaciones para periodo:", currentPeriodo)
+                  const aprobadosResponse = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/aprobado/detalles?periodo=${currentPeriodo}`,
+                  )
 
-                const aprobadoResponse = await fetch(aprobadoUrl)
-                console.log("[v0] Respuesta de aprobación - status:", aprobadoResponse.status)
+                  console.log("[v0] Status de respuesta aprobados:", aprobadosResponse.status)
 
-                if (aprobadoResponse.ok) {
-                  const aprobadoData = await aprobadoResponse.json()
-                  console.log("[v0] Datos de aprobación recibidos:", aprobadoData)
-                  console.log("[v0] Periodo de aprobación:", aprobadoData.periodo)
-                  console.log("[v0] Periodo actual:", currentPeriodo)
-                  console.log("[v0] ¿Son iguales?:", aprobadoData.periodo === currentPeriodo)
+                  if (aprobadosResponse.ok) {
+                    const aprobadosData = await aprobadosResponse.json()
+                    console.log("[v0] Datos de aprobados recibidos:", aprobadosData)
+                    console.log("[v0] Cantidad de registros aprobados:", aprobadosData?.length || 0)
 
-                  // Compare approval period with current period
-                  if (currentPeriodo && aprobadoData.periodo === currentPeriodo) {
-                    console.log("[v0] ✅ APROBADA - Mostrando banner verde")
-                    setIsAprobadaEnPeriodoActual(true)
+                    // Verificar si alguna ayudantía aprobada pertenece a este ayudante
+                    const ayudantiasAprobadas = aprobadosData || []
+
+                    console.log("[v0] Buscando aprobación para ayudante cedula:", data.cedula)
+                    console.log("[v0] Buscando aprobación para ayudantía id:", ayudantiaData.id)
+
+                    // Buscar si existe una ayudantía aprobada para este ayudante en el periodo actual
+                    let isApproved = false
+
+                    for (const aprobado of ayudantiasAprobadas) {
+                      console.log("[v0] Revisando registro aprobado:", aprobado)
+
+                      // El endpoint /aprobado/detalles puede devolver diferentes campos
+                      // Intentamos múltiples formas de comparar
+                      if (aprobado.cedula_ayudante === data.cedula) {
+                        console.log("[v0] ✓ Match por cedula_ayudante")
+                        isApproved = true
+                        break
+                      }
+
+                      if (aprobado.id_ayudantia === ayudantiaData.id) {
+                        console.log("[v0] ✓ Match por id_ayudantia")
+                        isApproved = true
+                        break
+                      }
+                    }
+
+                    console.log("[v0] Resultado final isApproved:", isApproved)
+                    setIsAprobadaEnPeriodoActual(isApproved)
                   } else {
-                    console.log("[v0] ❌ NO APROBADA - Periodos no coinciden")
-                    setIsAprobadaEnPeriodoActual(false)
+                    console.log("[v0] Error en respuesta de aprobados, status:", aprobadosResponse.status)
                   }
-                } else {
-                  console.log("[v0] ❌ No hay registro de aprobación (404 o error)")
+                } catch (error) {
+                  console.error("[v0] Error verificando aprobación:", error)
                   setIsAprobadaEnPeriodoActual(false)
                 }
-              } catch (error) {
-                console.error("[v0] ❌ Error verificando aprobación:", error)
-                setIsAprobadaEnPeriodoActual(false)
               }
             } else if (ayudantiaResponse.status === 404) {
               console.log("[v0] No se encontró ayudantía para este ayudante")
@@ -408,11 +430,10 @@ export default function AyudanteDashboardPage() {
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-base text-green-800 dark:text-green-200 mb-1">
-                  Tu ayudantía ha sido aprobada
+                  ¡Felicidades! Has sido aprobado en el periodo {periodoActual}
                 </h3>
                 <p className="text-sm text-green-700 dark:text-green-300">
-                  Felicitaciones, tu ayudantía para el periodo <span className="font-bold">{periodoActual}</span> ha
-                  sido evaluada y aprobada exitosamente.
+                  Tu ayudantía ha sido evaluada y aprobada exitosamente. Eres elegible para recibir el beneficio.
                 </p>
               </div>
             </div>
