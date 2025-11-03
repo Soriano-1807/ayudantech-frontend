@@ -1,6 +1,6 @@
 "use client"
 
-import { BookOpen, Users, LogOut, Calendar, AlertCircle, Eye } from "lucide-react"
+import { BookOpen, Users, LogOut, Calendar, AlertCircle, Eye, DownloadCloud } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Search, DownloadCloud } from "lucide-react"
+import { Plus, Search } from "lucide-react"
 
 interface Ayudantia {
   id: number
@@ -510,19 +510,32 @@ export default function SupervisorDashboard() {
                         {new Date(actividad.fecha).toLocaleString()}
                       </TableCell>
                       <TableCell>{actividad.descripcion}</TableCell>
-                      <TableCell className="text-right">
+                      
+                      {/* --- SECCIÓN MODIFICADA --- */}
+                      <TableCell className="text-right max-w-xs">
                         {actividad.evidencia ? (
-                          <Button
-                            variant="link"
-                            onClick={() => downloadEvidence(actividad.evidencia)}
-                            className="p-0"
-                          >
-                            Descargar
-                          </Button>
+                          // Si es un archivo (data URL) o un enlace, muestra el botón
+                          actividad.evidencia.startsWith("data:") || actividad.evidencia.startsWith("http") ? (
+                            <Button
+                              variant="link"
+                              onClick={() => downloadEvidence(actividad.evidencia)}
+                              className="p-0 h-auto"
+                            >
+                              Descargar Archivo
+                            </Button>
+                          ) : (
+                            // Si no, es un comentario, muéstralo como texto
+                            <p className="text-sm text-foreground italic text-right whitespace-pre-wrap">
+                              "{actividad.evidencia}"
+                            </p>
+                          )
                         ) : (
+                          // Si no hay nada, muestra "Sin evidencia"
                           <span className="text-muted-foreground">Sin evidencia</span>
                         )}
                       </TableCell>
+                      {/* --- FIN DE SECCIÓN MODIFICADA --- */}
+
                     </TableRow>
                   ))}
                 </TableBody>

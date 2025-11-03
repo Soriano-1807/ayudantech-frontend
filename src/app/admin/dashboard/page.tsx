@@ -752,6 +752,31 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const downloadEvidence = (evidencia?: string | null) => {
+  if (!evidencia) return
+  try {
+    if (evidencia.startsWith("http") || evidencia.startsWith("/uploads")) {
+      window.open(evidencia, "_blank")
+      return
+    }
+    if (evidencia.startsWith("data:")) {
+      const a = document.createElement("a")
+      a.href = evidencia
+      a.download = "evidencia"
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      return
+    }
+    // texto libre -> copiar al portapapeles y avisar
+    navigator.clipboard?.writeText(evidencia).then(() => {
+      alert("Evidencia (texto) copiada al portapapeles")
+    })
+  } catch (err) {
+    console.error("Error downloadEvidence:", err)
+  }
+}
+
   const handleShowActivitiesForAyudantia = (ayudantia: Ayudantia) => {
     setSelectedAyudantia(ayudantia)
     fetchActivitiesForAyudantia(ayudantia.id)
@@ -3564,15 +3589,12 @@ export default function AdminDashboardPage() {
       </Dialog>
 
       {/* AGREGADO: Modal para ver actividades */}
-      <Dialog open={showActivitiesModal} onOpenChange={setShowActivitiesModal}>
+      <Dialog open={showActivitiesModal} onOpenChange={() => setShowActivitiesModal(false)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Actividades de la Ayudantía #{selectedAyudantia?.id}</DialogTitle>
-            <DialogDescription>
-              Mostrando actividades para el ayudante con cédula {selectedAyudantia?.cedula_ayudante} en la plaza de{" "}
-              {selectedAyudantia?.plaza}.
-            </DialogDescription>
           </DialogHeader>
+
           <div className="mt-4">
             {loadingActivities ? (
               <div className="flex justify-center items-center h-40">
@@ -3594,13 +3616,22 @@ export default function AdminDashboardPage() {
                       <TableRow key={actividad.id}>
                         <TableCell>{new Date(actividad.fecha).toLocaleString()}</TableCell>
                         <TableCell className="max-w-sm whitespace-pre-wrap">{actividad.descripcion}</TableCell>
+
                         <TableCell className="text-right">
                           {actividad.evidencia ? (
-                            <Button asChild variant="link" size="sm">
-                              <a href={actividad.evidencia} target="_blank" rel="noopener noreferrer">
-                                Ver
-                              </a>
-                            </Button>
+                            actividad.evidencia.startsWith("data:") ? (
+                              <Button size="sm" variant="link" onClick={() => downloadEvidence(actividad.evidencia)}>
+                                Descargar Archivo
+                              </Button>
+                            ) : actividad.evidencia.startsWith("http") || actividad.evidencia.startsWith("/uploads") ? (
+                              <Button asChild size="sm" variant="link">
+                                <a href={actividad.evidencia} target="_blank" rel="noopener noreferrer">
+                                  Abrir / Ver
+                                </a>
+                              </Button>
+                            ) : (
+                              <p className="text-sm text-foreground italic">"{actividad.evidencia}"</p>
+                            )
                           ) : (
                             <span className="text-xs text-muted-foreground">N/A</span>
                           )}
@@ -3611,16 +3642,15 @@ export default function AdminDashboardPage() {
                 </Table>
               </div>
             ) : (
-              <p className="text-center text-muted-foreground py-10">
-                No hay actividades registradas para esta ayudantía.
-              </p>
+              <p className="text-center text-muted-foreground py-10">No hay actividades registradas para esta ayudantía.</p>
             )}
           </div>
-          <DialogFooter>
+
+          <div className="flex justify-end mt-4">
             <Button variant="outline" onClick={() => setShowActivitiesModal(false)}>
               Cerrar
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
