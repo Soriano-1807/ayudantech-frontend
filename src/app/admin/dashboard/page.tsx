@@ -204,7 +204,7 @@ export default function AdminDashboardPage() {
   const [showCreatePeriodoModal, setShowCreatePeriodoModal] = useState(false)
   const [newPeriodo, setNewPeriodo] = useState({
     firstPart: "25",
-    secondPart: "26",
+    secondPart: "26", // Initially set to consecutive
     suffix: "1",
     actual: false,
   })
@@ -1814,6 +1814,25 @@ export default function AdminDashboardPage() {
   }
 
   const handleCreatePeriodo = async () => {
+    const firstNum = Number.parseInt(newPeriodo.firstPart)
+    const secondNum = Number.parseInt(newPeriodo.secondPart)
+
+    if (isNaN(firstNum) || isNaN(secondNum)) {
+      setErrorDialogMessage("Por favor ingrese números válidos para el periodo")
+      setShowErrorDialog(true)
+      return
+    }
+
+    if (secondNum !== firstNum + 1) {
+      setErrorDialogMessage(
+        `Los números deben ser consecutivos. Por ejemplo: ${firstNum}${firstNum + 1}-${newPeriodo.suffix}\n` +
+          `Ejemplos válidos: 2526-1, 2627-2, 2728-3`,
+      )
+      setShowErrorDialog(true)
+      return
+    }
+    // </CHANGE>
+
     const nombrePeriodo = `${newPeriodo.firstPart}${newPeriodo.secondPart}-${newPeriodo.suffix}`
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos`, {
@@ -3638,7 +3657,18 @@ export default function AdminDashboardPage() {
                   type="number"
                   min="25"
                   value={newPeriodo.firstPart}
-                  onChange={(e) => setNewPeriodo({ ...newPeriodo, firstPart: e.target.value })}
+                  onChange={(e) => {
+                    const firstNum = Number.parseInt(e.target.value)
+                    if (!isNaN(firstNum)) {
+                      setNewPeriodo({
+                        ...newPeriodo,
+                        firstPart: e.target.value,
+                        secondPart: (firstNum + 1).toString(),
+                      })
+                    } else {
+                      setNewPeriodo({ ...newPeriodo, firstPart: e.target.value })
+                    }
+                  }}
                   className="w-20"
                   placeholder="25"
                 />
@@ -3649,6 +3679,8 @@ export default function AdminDashboardPage() {
                   onChange={(e) => setNewPeriodo({ ...newPeriodo, secondPart: e.target.value })}
                   className="w-20"
                   placeholder="26"
+                  readOnly
+                  disabled
                 />
                 <span className="text-muted-foreground">-</span>
                 <Select
@@ -3670,6 +3702,7 @@ export default function AdminDashboardPage() {
                 Ejemplo: {newPeriodo.firstPart}
                 {newPeriodo.secondPart}-{newPeriodo.suffix}
               </p>
+              <p className="text-xs text-blue-600">Los números deben ser consecutivos (ej: 25-26, 26-27, 27-28)</p>
             </div>
 
             <div className="flex items-center space-x-2">
