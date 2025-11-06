@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 
 interface Ayudantia {
   id: number
@@ -40,6 +40,7 @@ export default function EvaluacionPage() {
   const [ayudantiaToApprove, setAyudantiaToApprove] = useState<Ayudantia | null>(null)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const isSubmittingRef = useRef(false)
 
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showErrorModal, setShowErrorModal] = useState(false)
@@ -48,7 +49,6 @@ export default function EvaluacionPage() {
   useEffect(() => {
     const fetchAyudantias = async () => {
       try {
-        // Get supervisor data from localStorage
         const supervisorData = localStorage.getItem("supervisorData")
         if (!supervisorData) {
           router.push("/supervisor/login")
@@ -58,7 +58,6 @@ export default function EvaluacionPage() {
         const supervisor = JSON.parse(supervisorData)
         const cedulaSupervisor = supervisor.cedula
 
-        // Fetch current period
         const periodoRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/actual`)
         if (!periodoRes.ok) {
           console.error("No hay período activo")
@@ -68,7 +67,6 @@ export default function EvaluacionPage() {
         const periodoData = await periodoRes.json()
         const periodoActual = periodoData.nombre
 
-        // Fetch supervisor's ayudantías
         const ayudantiasRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/ayudantias/supervisor/${cedulaSupervisor}`,
         )
@@ -78,14 +76,11 @@ export default function EvaluacionPage() {
         }
         const ayudantiasData: Ayudantia[] = await ayudantiasRes.json()
 
-        // Fetch approved ayudantías for current period
         const aprobadosRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/aprobado/periodo/${periodoActual}`)
         const aprobadosData: Aprobado[] = aprobadosRes.ok ? await aprobadosRes.json() : []
 
-        // Create a Set of approved ayudantía IDs for quick lookup
         const aprobadosIds = new Set(aprobadosData.map((a) => a.id_ayudantia))
 
-        // Fetch ayudante names for all ayudantías
         const ayudantiasConNombres = await Promise.all(
           ayudantiasData.map(async (ayudantia) => {
             try {
@@ -103,7 +98,6 @@ export default function EvaluacionPage() {
           }),
         )
 
-        // Separate into approved and not approved
         const noAprobadas = ayudantiasConNombres.filter((a) => !aprobadosIds.has(a.id))
         const aprobadas = ayudantiasConNombres.filter((a) => aprobadosIds.has(a.id))
 
@@ -127,8 +121,10 @@ export default function EvaluacionPage() {
   const confirmAprobar = async () => {
     if (!ayudantiaToApprove) return
 
-    if (isSubmitting) return
+    if (isSubmitting || isSubmittingRef.current) return
+
     setIsSubmitting(true)
+    isSubmittingRef.current = true
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/aprobado`, {
@@ -147,6 +143,7 @@ export default function EvaluacionPage() {
         setShowErrorModal(true)
         setShowConfirmDialog(false)
         setIsSubmitting(false)
+        isSubmittingRef.current = false
         return
       }
 
@@ -204,10 +201,8 @@ export default function EvaluacionPage() {
         }
       } catch (emailError) {
         console.error("Error al enviar correo de notificación:", emailError)
-        // No mostramos error al usuario, la aprobación fue exitosa
       }
 
-      // Move ayudantía from no aprobadas to aprobadas
       setAyudantiasNoAprobadas((prev) => prev.filter((a) => a.id !== ayudantiaToApprove.id))
       setAyudantiasAprobadas((prev) => [...prev, ayudantiaToApprove])
 
@@ -215,18 +210,19 @@ export default function EvaluacionPage() {
       setShowSuccessModal(true)
       setAyudantiaToApprove(null)
       setIsSubmitting(false)
+      isSubmittingRef.current = false
     } catch (error) {
       console.error("Error al aprobar:", error)
       setErrorMessage("Error al aprobar la ayudantía")
       setShowErrorModal(true)
       setShowConfirmDialog(false)
       setIsSubmitting(false)
+      isSubmittingRef.current = false
     }
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -243,11 +239,9 @@ export default function EvaluacionPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Ayudantes sin aprobar */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -306,7 +300,6 @@ export default function EvaluacionPage() {
               </CardContent>
             </Card>
 
-            {/* Aprobados */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
