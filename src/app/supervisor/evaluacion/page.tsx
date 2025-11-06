@@ -39,6 +39,8 @@ export default function EvaluacionPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [ayudantiaToApprove, setAyudantiaToApprove] = useState<Ayudantia | null>(null)
 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
@@ -125,6 +127,9 @@ export default function EvaluacionPage() {
   const confirmAprobar = async () => {
     if (!ayudantiaToApprove) return
 
+    if (isSubmitting) return
+    setIsSubmitting(true)
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/aprobado`, {
         method: "POST",
@@ -141,64 +146,8 @@ export default function EvaluacionPage() {
         setErrorMessage(errorData.error || "Error al aprobar la ayudantía")
         setShowErrorModal(true)
         setShowConfirmDialog(false)
+        setIsSubmitting(false)
         return
-      }
-
-      const periodoRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/periodos/actual`)
-      let periodoActual = "Periodo actual"
-      if (periodoRes.ok) {
-        const periodoData = await periodoRes.json()
-        periodoActual = periodoData.nombre
-      }
-
-      try {
-        const ayudanteRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/ayudantes/${ayudantiaToApprove.cedula_ayudante}`,
-        )
-
-        if (ayudanteRes.ok) {
-          const ayudanteData = await ayudanteRes.json()
-
-          if (ayudanteData.correo) {
-            await fetch("/api/send-email", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                to: ayudanteData.correo,
-                subject: "✅ Tu ayudantía ha sido evaluada y aprobada",
-                html: `
-                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <div style="background-color: #16a34a; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-                      <h2 style="margin: 0;">¡Felicitaciones ${ayudantiaToApprove.nombre_ayudante || ayudanteData.nombre}!</h2>
-                    </div>
-                    <div style="background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-                      <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
-                        Tu ayudantía ha sido evaluada y <strong>aprobada exitosamente</strong>.
-                      </p>
-                      <div style="background-color: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;">
-                        <p style="margin: 8px 0; color: #374151;"><strong>Plaza:</strong> ${ayudantiaToApprove.plaza}</p>
-                        <p style="margin: 8px 0; color: #374151;"><strong>Periodo:</strong> ${periodoActual}</p>
-                        <p style="margin: 8px 0; color: #374151;"><strong>Tipo:</strong> ${ayudantiaToApprove.tipo_ayudante}</p>
-                      </div>
-                      <p style="font-size: 16px; color: #374151; margin-top: 20px;">
-                        Continúa con el excelente trabajo.
-                      </p>
-                      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-                      <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                        Este es un correo automático, por favor no responder.
-                      </p>
-                    </div>
-                  </div>
-                `,
-              }),
-            })
-          }
-        }
-      } catch (emailError) {
-        console.error("Error al enviar correo de notificación:", emailError)
-        // No mostramos error al usuario, la aprobación fue exitosa
       }
 
       // Move ayudantía from no aprobadas to aprobadas
@@ -208,11 +157,13 @@ export default function EvaluacionPage() {
       setShowConfirmDialog(false)
       setShowSuccessModal(true)
       setAyudantiaToApprove(null)
+      setIsSubmitting(false)
     } catch (error) {
       console.error("Error al aprobar:", error)
       setErrorMessage("Error al aprobar la ayudantía")
       setShowErrorModal(true)
       setShowConfirmDialog(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -370,11 +321,11 @@ export default function EvaluacionPage() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
+            <Button variant="outline" onClick={() => setShowConfirmDialog(false)} disabled={isSubmitting}>
               Cancelar
             </Button>
-            <Button onClick={confirmAprobar} className="bg-green-600 hover:bg-green-700">
-              Confirmar Aprobación
+            <Button onClick={confirmAprobar} className="bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
+              {isSubmitting ? "Procesando..." : "Confirmar Aprobación"}
             </Button>
           </DialogFooter>
         </DialogContent>
