@@ -39,6 +39,8 @@ export default function EvaluacionPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [ayudantiaToApprove, setAyudantiaToApprove] = useState<Ayudantia | null>(null)
 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
@@ -125,6 +127,9 @@ export default function EvaluacionPage() {
   const confirmAprobar = async () => {
     if (!ayudantiaToApprove) return
 
+    if (isSubmitting) return
+    setIsSubmitting(true)
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/aprobado`, {
         method: "POST",
@@ -141,6 +146,7 @@ export default function EvaluacionPage() {
         setErrorMessage(errorData.error || "Error al aprobar la ayudantía")
         setShowErrorModal(true)
         setShowConfirmDialog(false)
+        setIsSubmitting(false)
         return
       }
 
@@ -208,11 +214,13 @@ export default function EvaluacionPage() {
       setShowConfirmDialog(false)
       setShowSuccessModal(true)
       setAyudantiaToApprove(null)
+      setIsSubmitting(false)
     } catch (error) {
       console.error("Error al aprobar:", error)
       setErrorMessage("Error al aprobar la ayudantía")
       setShowErrorModal(true)
       setShowConfirmDialog(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -370,11 +378,11 @@ export default function EvaluacionPage() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
+            <Button variant="outline" onClick={() => setShowConfirmDialog(false)} disabled={isSubmitting}>
               Cancelar
             </Button>
-            <Button onClick={confirmAprobar} className="bg-green-600 hover:bg-green-700">
-              Confirmar Aprobación
+            <Button onClick={confirmAprobar} className="bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
+              {isSubmitting ? "Procesando..." : "Confirmar Aprobación"}
             </Button>
           </DialogFooter>
         </DialogContent>
